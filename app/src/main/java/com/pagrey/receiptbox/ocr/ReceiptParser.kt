@@ -21,12 +21,12 @@ object ReceiptParser {
 
     private fun findAmount(text: String, labels: List<String>): Double? {
         val pattern = labels.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
-        val match = Regex("(?i)(?:$pattern)\\s*[:#-]?\\s*[^0-9]{0,20}([0-9]{1,7}(?:[.,][0-9]{1,2})?)").find(text)
+        val match = Regex("(?i)(?:$pattern)\\s*[:#-]?\\s*[^0-9]{0,20}([0-9]{1,7}(?:[.,][0-9]{1,3})?(?:[.,][0-9]{3})?)").find(text)
         return match?.groupValues?.getOrNull(1)?.let(::parseNumber)
     }
 
-    private fun parseNumber(value: String): Double? {
-        val cleaned = value.trim()
+    fun parseNumber(value: String): Double? {
+        val cleaned = value.trim().replace(" ", "")
         val commas = cleaned.count { it == ',' }
         val dots = cleaned.count { it == '.' }
         return when {
@@ -35,9 +35,18 @@ object ReceiptParser {
             } else {
                 cleaned.replace(",", "").toDoubleOrNull()
             }
-            commas == 1 -> cleaned.replace(',', '.').toDoubleOrNull()
-            dots == 1 && cleaned.substringAfter('.').length <= 2 -> cleaned.toDoubleOrNull()
+            commas == 1 -> {
+                val decimals = cleaned.substringAfter(',')
+                if (decimals.length == 3 && cleaned.substringBefore(',').length <= 3) cleaned.replace(",", "").toDoubleOrNull()
+                else cleaned.replace(',', '.').toDoubleOrNull()
+            }
+            dots == 1 -> {
+                val decimals = cleaned.substringAfter('.')
+                if (decimals.length == 3 && cleaned.substringBefore('.').length <= 3) cleaned.replace(".", "").toDoubleOrNull()
+                else cleaned.toDoubleOrNull()
+            }
             dots > 0 -> cleaned.replace(".", "").toDoubleOrNull()
+            commas > 0 -> cleaned.replace(",", "").toDoubleOrNull()
             else -> cleaned.toDoubleOrNull()
         }
     }
