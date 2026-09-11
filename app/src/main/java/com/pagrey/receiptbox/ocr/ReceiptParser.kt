@@ -53,8 +53,6 @@ object ReceiptParser {
         val labelLineRegex = Regex("(?im)^.*(?:$labelPattern).*$")
         val matches = labelLineRegex.findAll(text).toList()
 
-        // Prefer an explicit labelled line. This avoids taking an unrelated number
-        // from the following receipt text (a common source of false 0.0/other totals).
         for (match in matches) {
             val line = match.value
             val amounts = AMOUNT_REGEX.findAll(line).mapNotNull { parseNumber(it.value) }.toList()
@@ -69,5 +67,6 @@ object ReceiptParser {
     private val DATE_REGEX = Regex("\\b(?:\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})\\b")
     private val NUMBER_REGEX = Regex("(?i)(?:ticket|receipt|factura|invoice|n[ºo.]?)\\s*[:#-]?\\s*([A-Z0-9-]{3,})")
     private val WEBSITE_REGEX = Regex("(?i)(?:https?://)?(?:www\\.)?([a-z0-9][a-z0-9-]{1,30}\\.[a-z]{2,})(?:/[^\\s]*)?")
-    private val AMOUNT_REGEX = Regex("(?<!\\d)\\d{1,7}(?:[.,]\\d{1,3})?(?:[.,]\\d{3})?(?!\\d)")
+    // Keep European/US thousands separators attached to decimal parts.
+    private val AMOUNT_REGEX = Regex("(?<!\\d)\\d{1,7}(?:(?:[.,]\\d{3})*[.,]\\d{1,2})?(?!\\d)")
 }
