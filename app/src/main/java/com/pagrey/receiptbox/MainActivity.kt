@@ -17,7 +17,7 @@ import com.pagrey.receiptbox.ui.theme.ReceiptBoxTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ReceiptBoxTheme { ReceiptBoxApp() } }
+        setContent { ReceiptBoxApp() }
     }
 }
 
@@ -26,22 +26,30 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
     val receipts by viewModel.receipts.collectAsStateWithLifecycle(initialValue = emptyList())
     val navController = rememberNavController()
     var query by remember { mutableStateOf("") }
-    val navigate: (String) -> Unit = { route -> navController.navigate(route) { launchSingleTop = true } }
-    val goHome = { navController.navigate("home") { popUpTo("home") { inclusive = true }; launchSingleTop = true } }
+    var darkTheme by remember { mutableStateOf(false) }
 
-    Scaffold(bottomBar = {
-        val route = navController.currentBackStackEntry?.destination?.route ?: "home"
-        if (route == "home" || route == "tickets" || route == "add") BottomNav(route, navigate)
-    }) { paddingValues ->
-        Box(Modifier.padding(paddingValues)) {
-            NavHost(navController, startDestination = "home") {
-                composable("home") { HomeScreen(receipts, { navigate("add") }, { id -> navigate("detail/$id") }, { navigate("tickets") }) }
-                composable("tickets") { ReceiptListScreen(receipts, query, { query = it }, { id -> navigate("detail/$id") }) }
-                composable("add") { AddReceiptScreen(viewModel, { id -> navController.navigate("detail/$id") { popUpTo("home") } }, goHome) }
-                composable("detail/{id}") { entry ->
-                    val id = entry.arguments?.getString("id")?.toLongOrNull()
-                    val selected = receipts.firstOrNull { it.id == id }
-                    ReceiptDetailScreen(selected, { navController.popBackStack() }, viewModel::delete, viewModel::save)
+    ReceiptBoxTheme(darkTheme = darkTheme) {
+        val navigate: (String) -> Unit = { route -> navController.navigate(route) { launchSingleTop = true } }
+        val goHome = { navController.navigate("home") { popUpTo("home") { inclusive = true }; launchSingleTop = true } }
+
+        Scaffold(bottomBar = {
+            val route = navController.currentBackStackEntry?.destination?.route ?: "home"
+            if (route == "home" || route == "tickets" || route == "add" || route == "stats" || route == "settings") {
+                BottomNav(route, navigate)
+            }
+        }) { paddingValues ->
+            Box(Modifier.padding(paddingValues)) {
+                NavHost(navController, startDestination = "home") {
+                    composable("home") { HomeScreen(receipts, { navigate("add") }, { id -> navigate("detail/$id") }, { navigate("tickets") }) }
+                    composable("tickets") { ReceiptListScreen(receipts, query, { query = it }, { id -> navigate("detail/$id") }) }
+                    composable("add") { AddReceiptScreen(viewModel, { id -> navController.navigate("detail/$id") { popUpTo("home") } }, goHome) }
+                    composable("stats") { StatisticsScreen(receipts) { goHome() } }
+                    composable("settings") { SettingsScreen(darkTheme, { darkTheme = it }) { goHome() } }
+                    composable("detail/{id}") { entry ->
+                        val id = entry.arguments?.getString("id")?.toLongOrNull()
+                        val selected = receipts.firstOrNull { it.id == id }
+                        ReceiptDetailScreen(selected, { navController.popBackStack() }, viewModel::delete, viewModel::save)
+                    }
                 }
             }
         }
