@@ -39,4 +39,18 @@ class ReceiptParserTest {
         assertEquals("Familycash", result.merchant)
         assertEquals(123.90, result.total!!, 0.001)
     }
+
+    @Test
+    fun parsesEuropeanThousandsSeparatorWithoutTruncatingDecimals() {
+        val raw = """
+            SUPERMERCADO EJEMPLO
+            IVA: 234,56
+            TOTAL A PAGAR: 1.234,56
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals(1234.56, result.total!!, 0.001)
+        assertEquals(234.56, result.tax!!, 0.001)
+    }
 }

@@ -69,7 +69,5 @@ object ReceiptParser {
     private val DATE_REGEX = Regex("\\b(?:\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})\\b")
     private val NUMBER_REGEX = Regex("(?i)(?:ticket|receipt|factura|invoice|n[ºo.]?)\\s*[:#-]?\\s*([A-Z0-9-]{3,})")
     private val WEBSITE_REGEX = Regex("(?i)(?:https?://)?(?:www\\.)?([a-z0-9][a-z0-9-]{1,30}\\.[a-z]{2,})(?:/[^\\s]*)?")
-    // Match European amounts as one token, including 1.234,56 / 1 234,56,
-    // while still accepting simple 12,50 and 12.50 values.
-    private val AMOUNT_REGEX = Regex("(?<!\\d)\\d{1,3}(?:(?:[. ]\\d{3})+|(?:[.,]\\d{1,3}))(?!\\d)|(?<!\\d)\\d{1,7}(?![.,]\\d)")
+    private val AMOUNT_REGEX = Regex("(?<!\\d)\\d{1,7}(?:[.,]\\d{1,3})?(?:[.,]\\d{3})?(?!\\d)")
 }
