@@ -10,15 +10,18 @@ import kotlin.coroutines.resume
 class ReceiptOcrProcessor {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-    suspend fun process(bitmap: Bitmap): Result<ParsedReceipt> =
+    suspend fun process(bitmap: Bitmap): Result<OcrResult> =
         suspendCancellableCoroutine { continuation ->
-            val image = InputImage.fromBitmap(bitmap, 0)
-            recognizer.process(image)
+            recognizer.process(InputImage.fromBitmap(bitmap, 0))
                 .addOnSuccessListener { result ->
-                    continuation.resume(Result.success(ReceiptParser.parse(result.text)))
+                    continuation.resume(Result.success(OcrResult(result.text, ReceiptParser.parse(result.text))))
                 }
                 .addOnFailureListener { error ->
                     continuation.resume(Result.failure(error))
                 }
         }
+
+    fun close() = recognizer.close()
 }
+
+data class OcrResult(val rawText: String, val parsed: ParsedReceipt)
