@@ -1,5 +1,7 @@
 package com.pagrey.receiptbox.ocr
 
+import com.pagrey.receiptbox.util.parseReceiptAmount
+
 data class ParsedReceipt(
     val merchant: String = "",
     val date: String = "",
@@ -25,31 +27,8 @@ object ReceiptParser {
         return match?.groupValues?.getOrNull(1)?.let(::parseNumber)
     }
 
-    fun parseNumber(value: String): Double? {
-        val cleaned = value.trim().replace(" ", "")
-        val commas = cleaned.count { it == ',' }
-        val dots = cleaned.count { it == '.' }
-        return when {
-            commas > 0 && dots > 0 -> if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
-                cleaned.replace(".", "").replace(',', '.').toDoubleOrNull()
-            } else {
-                cleaned.replace(",", "").toDoubleOrNull()
-            }
-            commas == 1 -> {
-                val decimals = cleaned.substringAfter(',')
-                if (decimals.length == 3 && cleaned.substringBefore(',').length <= 3) cleaned.replace(",", "").toDoubleOrNull()
-                else cleaned.replace(',', '.').toDoubleOrNull()
-            }
-            dots == 1 -> {
-                val decimals = cleaned.substringAfter('.')
-                if (decimals.length == 3 && cleaned.substringBefore('.').length <= 3) cleaned.replace(".", "").toDoubleOrNull()
-                else cleaned.toDoubleOrNull()
-            }
-            dots > 0 -> cleaned.replace(".", "").toDoubleOrNull()
-            commas > 0 -> cleaned.replace(",", "").toDoubleOrNull()
-            else -> cleaned.toDoubleOrNull()
-        }
-    }
+    /** Kept public for compatibility; amount parsing is centralized in the shared utility. */
+    fun parseNumber(value: String): Double? = parseReceiptAmount(value)
 
     private val DATE_REGEX = Regex("\\b(?:\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})\\b")
     private val NUMBER_REGEX = Regex("(?i)(?:ticket|receipt|factura|invoice|n[ºo.]?)\\s*[:#-]?\\s*([A-Z0-9-]{3,})")
