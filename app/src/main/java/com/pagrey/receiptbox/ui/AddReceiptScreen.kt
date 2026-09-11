@@ -21,9 +21,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.WarningAmber
@@ -45,16 +48,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pagrey.receiptbox.data.Receipt
 import com.pagrey.receiptbox.ocr.OcrResult
 import com.pagrey.receiptbox.ocr.ReceiptOcrProcessor
 import com.pagrey.receiptbox.util.parseReceiptAmount
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -77,11 +78,9 @@ fun AddReceiptScreen(viewModel: ReceiptBoxViewModel, onSaved: (Long) -> Unit, on
         processing = true
         error = null
         val processor = ReceiptOcrProcessor()
-        val bitmap = withContext(Dispatchers.IO) { BitmapFactory.decodeFile(file.absolutePath) }
-        if (bitmap == null) {
-            error = "No se ha podido leer la imagen."
-        } else {
-            ocr = processor.process(bitmap).getOrElse { error = it.message ?: "No se ha podido analizar el ticket."; null }
+        ocr = processor.process(context, file).getOrElse {
+            error = it.message ?: "No se ha podido analizar el ticket."
+            null
         }
         processor.close()
         processing = false
@@ -112,10 +111,17 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
     val totalInvalid = totalValue == null || totalValue <= 0.0
     val missing = listOf(merchantInvalid, date.isBlank(), totalInvalid).count { it }
     val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
+    val scrollState = rememberScrollState()
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .imePadding()
+            .padding(16.dp)
+    ) {
         Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium)
-        Text("Comprueba los datos detectados antes de guardarlo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Comprueba y corrige los datos antes de guardarlo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (bitmap != null) {
             Spacer(Modifier.height(12.dp))
             Image(bitmap.asImageBitmap(), "Vista previa del ticket", Modifier.fillMaxWidth().height(180.dp))
@@ -123,11 +129,20 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
         Spacer(Modifier.height(12.dp))
         Card(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber, null, Modifier.size(28.dp), tint = if (missing == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                Icon(
+                    if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber,
+                    null,
+                    Modifier.size(28.dp),
+                    tint = if (missing == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(if (missing == 0) "Datos detectados" else "Revisión recomendada", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-                    Text(if (missing == 0) "Los campos principales están completos." else "Hay $missing campos que necesitan revisión. Revísalos antes de guardar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        if (missing == 0) "Los campos principales están completos."
+                        else "Hay $missing campos que necesitan revisión. Revísalos antes de guardar.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -135,20 +150,37 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
         OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = 12.dp), label = { Text("Comercio") }, singleLine = true, isError = merchantInvalid)
         OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Fecha") }, singleLine = true)
         OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Total") }, singleLine = true, isError = totalInvalid)
+        if (totalInvalid) Text("Introduce un total válido mayor que 0 €.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(tax, { tax = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("IVA") }, singleLine = true)
         OutlinedTextField(number, { number = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("N.º de ticket") }, singleLine = true)
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancelar") }
-            Button(onClick = {
-                onSave(Receipt(merchant = merchant.trim(), date = date.trim(), total = parseReceiptAmount(total), tax = parseReceiptAmount(tax), receiptNumber = number.trim(), imagePath = file.absolutePath, rawText = ocr?.rawText.orEmpty()))
-            }, enabled = !merchantInvalid && !totalInvalid, modifier = Modifier.weight(1f)) { Text("Guardar") }
+            Button(
+                onClick = {
+                    val parsedTotal = parseReceiptAmount(total)
+                    if (!merchantInvalid && parsedTotal != null && parsedTotal > 0.0) {
+                        onSave(Receipt(
+                            merchant = merchant.trim(),
+                            date = date.trim(),
+                            total = parsedTotal,
+                            tax = parseReceiptAmount(tax),
+                            receiptNumber = number.trim(),
+                            imagePath = file.absolutePath,
+                            rawText = ocr?.rawText.orEmpty()
+                        ))
+                    }
+                },
+                enabled = !merchantInvalid && !totalInvalid,
+                modifier = Modifier.weight(1f)
+            ) { Text("Guardar") }
         }
         Spacer(Modifier.height(16.dp))
         Card(Modifier.fillMaxWidth()) {
             Text("OCR original", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
             Text(ocr?.rawText?.ifBlank { "Sin texto detectado" } ?: "Sin texto detectado", modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
         }
+        Spacer(Modifier.height(24.dp))
     }
 }
 
