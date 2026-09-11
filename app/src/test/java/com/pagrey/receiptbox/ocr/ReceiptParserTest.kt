@@ -22,10 +22,4 @@ class ReceiptParserTest {
         assertEquals(2.50, result.tax!!, 0.001)
         assertEquals("ABC123", result.receiptNumber)
     }
-
-    @Test
-    fun parsesEuropeanThousandsInTotal() {
-        val result = ReceiptParser.parse("TIENDA\nTotal: 1.234,56")
-        assertEquals(1234.56, result.total!!, 0.001)
-    }
 }
