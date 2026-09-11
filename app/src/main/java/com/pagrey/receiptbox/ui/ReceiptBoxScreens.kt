@@ -25,23 +25,18 @@ import java.util.Locale
 private val euro = NumberFormat.getCurrencyInstance(Locale("es", "ES"))
 private val categories = listOf("Alimentación", "Hogar", "Transporte", "Salud", "Tecnología", "Ocio", "Ropa", "Otros")
 private val receiptDateFormatters = listOf(
-    DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-    DateTimeFormatter.ofPattern("dd-MM-yyyy"),
-    DateTimeFormatter.ISO_LOCAL_DATE,
-    DateTimeFormatter.ofPattern("yyyy/MM/dd")
+    DateTimeFormatter.ofPattern("dd/MM/yyyy"), DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+    DateTimeFormatter.ISO_LOCAL_DATE, DateTimeFormatter.ofPattern("yyyy/MM/dd")
 )
 
 @Composable
 fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Unit, onSeeAll: () -> Unit) {
     val today = remember { LocalDate.now() }
     val monthReceipts = remember(receipts, today.year, today.monthValue) {
-        receipts.filter { receipt ->
-            parseReceiptDate(receipt.date)?.let { it.year == today.year && it.monthValue == today.monthValue } == true
-        }
+        receipts.filter { receipt -> parseReceiptDate(receipt.date)?.let { it.year == today.year && it.monthValue == today.monthValue } == true }
     }
     val monthTotal = monthReceipts.sumOf { it.total ?: 0.0 }
     val total = receipts.sumOf { it.total ?: 0.0 }
-
     Scaffold(floatingActionButton = { FloatingActionButton(onClick = onAdd) { Icon(Icons.Default.Add, "Añadir ticket") } }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
@@ -165,15 +160,18 @@ fun ReceiptDetailScreen(receipt: Receipt?, onBack: () -> Unit, onDelete: (Receip
 private fun parseReceiptDate(value: String): LocalDate? {
     val clean = value.trim()
     if (clean.isEmpty()) return null
-    return receiptDateFormatters.firstNotNullOfOrNull { formatter ->
-        try { LocalDate.parse(clean, formatter) } catch (_: DateTimeParseException) { null }
-    }
+    return receiptDateFormatters.firstNotNullOfOrNull { formatter -> try { LocalDate.parse(clean, formatter) } catch (_: DateTimeParseException) { null } }
 }
 
 @Composable private fun DetailField(label: String, value: String) { Column(Modifier.fillMaxWidth()) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value.ifBlank { "—" }) } }
 
-@Composable fun BottomNav(selected: String, onSelect: (String) -> Unit) { NavigationBar {
-    NavigationBarItem(selected == "home", { onSelect("home") }, icon = { Icon(Icons.Default.ReceiptLong, null) }, label = { Text("Inicio") })
-    NavigationBarItem(selected == "tickets", { onSelect("tickets") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Tickets") })
-    NavigationBarItem(selected == "add", { onSelect("add") }, icon = { Icon(Icons.Default.Add, null) }, label = { Text("Añadir") })
-} }
+@Composable
+fun BottomNav(selected: String, onSelect: (String) -> Unit) {
+    NavigationBar {
+        NavigationBarItem(selected == "home", { onSelect("home") }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Inicio") })
+        NavigationBarItem(selected == "tickets", { onSelect("tickets") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Tickets") })
+        NavigationBarItem(selected == "add", { onSelect("add") }, icon = { Icon(Icons.Default.Add, null) }, label = { Text("Añadir") })
+        NavigationBarItem(selected == "stats", { onSelect("stats") }, icon = { Icon(Icons.Default.BarChart, null) }, label = { Text("Estadísticas") })
+        NavigationBarItem(selected == "settings", { onSelect("settings") }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Ajustes") })
+    }
+}
