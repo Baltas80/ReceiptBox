@@ -107,7 +107,10 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
     var total by remember(parsed) { mutableStateOf(parsed?.total?.toString().orEmpty()) }
     var tax by remember(parsed) { mutableStateOf(parsed?.tax?.toString().orEmpty()) }
     var number by remember(parsed) { mutableStateOf(parsed?.receiptNumber.orEmpty()) }
-    val missing = listOf(merchant, date, total).count { it.isBlank() }
+    val totalValue = parseReceiptAmount(total)
+    val merchantInvalid = merchant.isBlank() || merchant.trim().length < 2
+    val totalInvalid = totalValue == null || totalValue <= 0.0
+    val missing = listOf(merchantInvalid, date.isBlank(), totalInvalid).count { it }
     val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -124,14 +127,14 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(if (missing == 0) "Datos detectados" else "Revisión recomendada", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-                    Text(if (missing == 0) "Los campos principales están completos." else "Faltan $missing campos principales. Revísalos antes de guardar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (missing == 0) "Los campos principales están completos." else "Hay $missing campos que necesitan revisión. Revísalos antes de guardar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
-        OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = 12.dp), label = { Text("Comercio") }, singleLine = true, isError = merchant.isBlank())
+        OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = 12.dp), label = { Text("Comercio") }, singleLine = true, isError = merchantInvalid)
         OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Fecha") }, singleLine = true)
-        OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Total") }, singleLine = true, isError = total.isBlank())
+        OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Total") }, singleLine = true, isError = totalInvalid)
         OutlinedTextField(tax, { tax = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("IVA") }, singleLine = true)
         OutlinedTextField(number, { number = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("N.º de ticket") }, singleLine = true)
         Spacer(Modifier.height(16.dp))
@@ -139,7 +142,7 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
             Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancelar") }
             Button(onClick = {
                 onSave(Receipt(merchant = merchant.trim(), date = date.trim(), total = parseReceiptAmount(total), tax = parseReceiptAmount(tax), receiptNumber = number.trim(), imagePath = file.absolutePath, rawText = ocr?.rawText.orEmpty()))
-            }, enabled = merchant.isNotBlank() && total.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Guardar") }
+            }, enabled = !merchantInvalid && !totalInvalid, modifier = Modifier.weight(1f)) { Text("Guardar") }
         }
         Spacer(Modifier.height(16.dp))
         Card(Modifier.fillMaxWidth()) {
