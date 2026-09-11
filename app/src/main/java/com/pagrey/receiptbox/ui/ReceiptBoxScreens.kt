@@ -5,6 +5,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -147,14 +149,32 @@ fun ReceiptDetailScreen(receipt: Receipt?, onBack: () -> Unit, onDelete: (Receip
     var number by remember(receipt.id) { mutableStateOf(receipt.receiptNumber) }
     var category by remember(receipt.id) { mutableStateOf(if (receipt.category in categories) receipt.category else "Otros") }
     var expanded by remember(receipt.id) { mutableStateOf(false) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Editar ticket") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(merchant, { merchant = it }, label = { Text("Comercio") }, singleLine = true)
-        OutlinedTextField(date, { date = it }, label = { Text("Fecha") }, singleLine = true)
-        OutlinedTextField(total, { total = it }, label = { Text("Total") }, singleLine = true)
-        OutlinedTextField(tax, { tax = it }, label = { Text("IVA") }, singleLine = true)
-        OutlinedTextField(number, { number = it }, label = { Text("N.º de ticket") }, singleLine = true)
-        Box { Button(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(category) }; DropdownMenu(expanded, { expanded = false }) { categories.forEach { item -> DropdownMenuItem(text = { Text(item) }, onClick = { category = item; expanded = false }) } } }
-    } }, confirmButton = { Button(onClick = { onSave(receipt.copy(merchant = merchant.trim(), date = date.trim(), total = parseReceiptAmount(total), tax = parseReceiptAmount(tax), receiptNumber = number.trim(), category = category)) }) { Text("Guardar") } }, dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } })
+    val scrollState = rememberScrollState()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar ticket") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(merchant, { merchant = it }, label = { Text("Comercio") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(date, { date = it }, label = { Text("Fecha") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(total, { total = it }, label = { Text("Total") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(tax, { tax = it }, label = { Text("IVA") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(number, { number = it }, label = { Text("N.º de ticket") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Box(Modifier.fillMaxWidth()) {
+                    Button(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(category) }
+                    DropdownMenu(expanded, { expanded = false }) { categories.forEach { item -> DropdownMenuItem(text = { Text(item) }, onClick = { category = item; expanded = false }) } }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onSave(receipt.copy(merchant = merchant.trim(), date = date.trim(), total = parseReceiptAmount(total), tax = parseReceiptAmount(tax), receiptNumber = number.trim(), category = category)) }) { Text("Guardar") } },
+        dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 private fun parseReceiptDate(value: String): LocalDate? {
