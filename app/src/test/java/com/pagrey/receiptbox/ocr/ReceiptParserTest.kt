@@ -22,4 +22,21 @@ class ReceiptParserTest {
         assertEquals(2.50, result.tax!!, 0.001)
         assertEquals("ABC123", result.receiptNumber)
     }
+
+    @Test
+    fun detectsMerchantFromWebsiteWhenFirstOcrLineIsNoise() {
+        val raw = """
+            2,9%
+            99
+            2026/09/02
+            TOTAL: 123,90
+            www.familycash.es
+            GRACIAS POR SU VISITA
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals("Familycash", result.merchant)
+        assertEquals(123.90, result.total!!, 0.001)
+    }
 }
