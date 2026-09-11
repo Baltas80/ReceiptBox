@@ -1,7 +1,5 @@
 package com.pagrey.receiptbox.ocr
 
-import java.util.Locale
-
 data class ParsedReceipt(
     val merchant: String = "",
     val date: String = "",
@@ -14,12 +12,10 @@ object ReceiptParser {
     fun parse(rawText: String): ParsedReceipt {
         val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }
         val merchant = lines.firstOrNull()?.take(80).orEmpty()
-        val date = Regex("\\b(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})\\b")
-            .find(rawText)?.value.orEmpty()
-        val total = findAmount(rawText, listOf("total", "importe", "amount", "a pagar", "total a pagar"))
+        val date = DATE_REGEX.find(rawText)?.value.orEmpty()
+        val total = findAmount(rawText, listOf("total a pagar", "total", "importe", "amount", "a pagar"))
         val tax = findAmount(rawText, listOf("iva", "vat", "tax"))
-        val number = Regex("(?i)(?:ticket|receipt|factura|invoice|n[ºo.]?)\\s*[:#-]?\\s*([A-Z0-9-]{3,})")
-            .find(rawText)?.groupValues?.getOrNull(1).orEmpty()
+        val number = NUMBER_REGEX.find(rawText)?.groupValues?.getOrNull(1).orEmpty()
         return ParsedReceipt(merchant, date, total, tax, number)
     }
 
@@ -31,15 +27,21 @@ object ReceiptParser {
 
     private fun parseNumber(value: String): Double? {
         val cleaned = value.trim()
-        if (cleaned.count { it == ',' } > 0 && cleaned.count { it == '.' } > 0) {
-            return if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.'))
-                cleaned.replace(".", "").replace(',', '.').toDoubleOrNull()
-            else cleaned.replace(",", "").toDoubleOrNull()
-        }
+        val commas = cleaned.count { it == ',' }
+        val dots = cleaned.count { it == '.' }
         return when {
-            cleaned.contains(',') -> cleaned.replace(',', '.').toDoubleOrNull()
-            cleaned.count { it == '.' } == 1 && cleaned.substringAfter('.').length <= 2 -> cleaned.toDoubleOrNull()
-            else -> cleaned.replace(".", "").toDoubleOrNull()
+            commas > 0 && dots > 0 -> if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+                cleaned.replace(".", "").replace(',', '.').toDoubleOrNull()
+            } else {
+                cleaned.replace(",", "").toDoubleOrNull()
+            }
+            commas == 1 -> cleaned.replace(',', '.').toDoubleOrNull()
+            dots == 1 && cleaned.substringAfter('.').length <= 2 -> cleaned.toDoubleOrNull()
+            dots > 0 -> cleaned.replace(".", "").toDoubleOrNull()
+            else -> cleaned.toDoubleOrNull()
         }
     }
+
+    private val DATE_REGEX = Regex("\\b(?:\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})\\b")
+    private val NUMBER_REGEX = Regex("(?i)(?:ticket|receipt|factura|invoice|n[ºo.]?)\\s*[:#-]?\\s*([A-Z0-9-]{3,})")
 }
