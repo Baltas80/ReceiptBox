@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -29,11 +30,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -190,8 +194,11 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
     val lifecycleOwner = LocalLifecycleOwner.current
     var hasPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
     var cameraError by remember { mutableStateOf<String?>(null) }
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    var flashEnabled by remember { mutableStateOf(false) }
+    var hasFlash by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasPermission = it }
-    val imageCapture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build() }
+    val imageCapture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).setFlashMode(ImageCapture.FLASH_MODE_OFF).build() }
     val previewView = remember { PreviewView(context) }
     LaunchedEffect(Unit) { if (!hasPermission) permission.launch(Manifest.permission.CAMERA) }
 
@@ -212,14 +219,39 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
                 val provider = cameraProviderFuture.get()
                 val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
                 provider.unbindAll()
-                provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
-            }.onFailure { cameraError = "No se ha podido iniciar la cámara." }
+                val boundCamera = provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+                camera = boundCamera
+                hasFlash = boundCamera.cameraInfo.hasFlashUnit()
+            }.onFailure {
+                cameraError = "No se ha podido iniciar la cámara."
+                camera = null
+                hasFlash = false
+            }
         }, ContextCompat.getMainExecutor(context))
-        onDispose { runCatching { cameraProviderFuture.get().unbindAll() } }
+        onDispose {
+            runCatching {
+                camera?.cameraControl?.enableTorch(false)
+                cameraProviderFuture.get().unbindAll()
+            }
+            camera = null
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+        Row(Modifier.align(Alignment.TopEnd).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (hasFlash) {
+                IconButton(
+                    onClick = {
+                        flashEnabled = !flashEnabled
+                        imageCapture.flashMode = if (flashEnabled) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+                        camera?.cameraControl?.enableTorch(flashEnabled)
+                    }
+                ) {
+                    Icon(if (flashEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff, if (flashEnabled) "Flash activado" else "Flash desactivado")
+                }
+            }
+        }
         Column(Modifier.align(Alignment.BottomCenter).padding(24.dp)) {
             if (cameraError != null) Text(cameraError!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
