@@ -4,22 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.pagrey.receiptbox.ui.AddReceiptScreen
-import com.pagrey.receiptbox.ui.BottomNav
-import com.pagrey.receiptbox.ui.HomeScreen
-import com.pagrey.receiptbox.ui.ReceiptBoxViewModel
-import com.pagrey.receiptbox.ui.ReceiptDetailScreen
-import com.pagrey.receiptbox.ui.ReceiptListScreen
+import androidx.navigation.compose.*
+import com.pagrey.receiptbox.ui.*
 import com.pagrey.receiptbox.ui.theme.ReceiptBoxTheme
 
 class MainActivity : ComponentActivity() {
@@ -29,7 +20,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
     val receipts by viewModel.receipts.collectAsStateWithLifecycle(initialValue = emptyList())
     val navController = rememberNavController()
@@ -39,9 +30,9 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
 
     Scaffold(bottomBar = {
         val route = navController.currentBackStackEntry?.destination?.route ?: "home"
-        if (route == "home" || route == "tickets") BottomNav(route, navigate)
-    }) { padding ->
-        Box(androidx.compose.ui.Modifier.padding(padding)) {
+        if (route == "home" || route == "tickets" || route == "add") BottomNav(route, navigate)
+    }) { paddingValues ->
+        Box(Modifier.padding(paddingValues)) {
             NavHost(navController, startDestination = "home") {
                 composable("home") { HomeScreen(receipts, { navigate("add") }, { id -> navigate("detail/$id") }, { navigate("tickets") }) }
                 composable("tickets") { ReceiptListScreen(receipts, query, { query = it }, { id -> navigate("detail/$id") }) }
