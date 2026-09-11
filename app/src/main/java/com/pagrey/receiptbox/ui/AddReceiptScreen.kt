@@ -12,6 +12,7 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +22,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -36,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -80,11 +88,7 @@ fun AddReceiptScreen(viewModel: ReceiptBoxViewModel, onSaved: (Long) -> Unit, on
     }
 
     if (imageFile == null) {
-        CameraCapture(
-            onCaptured = { imageFile = it },
-            onGallery = { gallery.launch("image/*") },
-            onCancel = onCancel
-        )
+        CameraCapture(onCaptured = { imageFile = it }, onGallery = { gallery.launch("image/*") }, onCancel = onCancel)
     } else if (processing) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             CircularProgressIndicator()
@@ -103,15 +107,31 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
     var total by remember(parsed) { mutableStateOf(parsed?.total?.toString().orEmpty()) }
     var tax by remember(parsed) { mutableStateOf(parsed?.tax?.toString().orEmpty()) }
     var number by remember(parsed) { mutableStateOf(parsed?.receiptNumber.orEmpty()) }
+    val missing = listOf(merchant, date, total).count { it.isBlank() }
+    val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium)
         Text("Comprueba los datos detectados antes de guardarlo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+        if (bitmap != null) {
+            Spacer(Modifier.height(12.dp))
+            Image(bitmap.asImageBitmap(), "Vista previa del ticket", Modifier.fillMaxWidth().height(180.dp))
+        }
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth(), label = { Text("Comercio") }, singleLine = true)
+        Card(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber, null, Modifier.size(28.dp), tint = if (missing == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(if (missing == 0) "Datos detectados" else "Revisión recomendada", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    Text(if (missing == 0) "Los campos principales están completos." else "Faltan $missing campos principales. Revísalos antes de guardar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+        OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = 12.dp), label = { Text("Comercio") }, singleLine = true, isError = merchant.isBlank())
         OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Fecha") }, singleLine = true)
-        OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Total") }, singleLine = true)
+        OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Total") }, singleLine = true, isError = total.isBlank())
         OutlinedTextField(tax, { tax = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("IVA") }, singleLine = true)
         OutlinedTextField(number, { number = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("N.º de ticket") }, singleLine = true)
         Spacer(Modifier.height(16.dp))
@@ -119,7 +139,7 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
             Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancelar") }
             Button(onClick = {
                 onSave(Receipt(merchant = merchant.trim(), date = date.trim(), total = parseReceiptAmount(total), tax = parseReceiptAmount(tax), receiptNumber = number.trim(), imagePath = file.absolutePath, rawText = ocr?.rawText.orEmpty()))
-            }, modifier = Modifier.weight(1f)) { Text("Guardar") }
+            }, enabled = merchant.isNotBlank() && total.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Guardar") }
         }
         Spacer(Modifier.height(16.dp))
         Card(Modifier.fillMaxWidth()) {
@@ -138,7 +158,6 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasPermission = it }
     val imageCapture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build() }
     val previewView = remember { PreviewView(context) }
-
     LaunchedEffect(Unit) { if (!hasPermission) permission.launch(Manifest.permission.CAMERA) }
 
     if (!hasPermission) {
@@ -171,7 +190,8 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onGallery) { Text("Importar") }
                 Button(onClick = {
-                    val file = File(context.filesDir, "receipts").apply { mkdirs() }.let { File(it, "receipt_${System.currentTimeMillis()}.jpg") }
+                    val dir = File(context.filesDir, "receipts").apply { mkdirs() }
+                    val file = File(dir, "receipt_${System.currentTimeMillis()}.jpg")
                     imageCapture.takePicture(ImageCapture.OutputFileOptions.Builder(file).build(), ContextCompat.getMainExecutor(context), object : ImageCapture.OnImageSavedCallback {
                         override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) { onCaptured(file) }
                         override fun onError(exception: ImageCaptureException) { cameraError = "No se ha podido guardar la foto." }
@@ -183,11 +203,9 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
     }
 }
 
-private fun copyUriToFile(context: Context, uri: android.net.Uri): File? {
-    return runCatching {
-        val dir = File(context.filesDir, "receipts").apply { mkdirs() }
-        val file = File(dir, "receipt_${System.currentTimeMillis()}.jpg")
-        context.contentResolver.openInputStream(uri)!!.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
-        file
-    }.getOrNull()
-}
+private fun copyUriToFile(context: Context, uri: android.net.Uri): File? = runCatching {
+    val dir = File(context.filesDir, "receipts").apply { mkdirs() }
+    val file = File(dir, "receipt_${System.currentTimeMillis()}.jpg")
+    context.contentResolver.openInputStream(uri)!!.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
+    file
+}.getOrNull()
