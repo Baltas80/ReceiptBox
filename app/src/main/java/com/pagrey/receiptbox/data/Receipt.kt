@@ -11,7 +11,7 @@ data class Receipt(
     val total: Double? = null,
     val tax: Double? = null,
     val receiptNumber: String = "",
-    val category: String = "Other",
+    val category: String = "Otros",
     val imagePath: String = "",
     val rawText: String = "",
     val createdAt: Long = System.currentTimeMillis()
