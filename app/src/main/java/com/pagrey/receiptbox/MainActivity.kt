@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
@@ -25,15 +26,18 @@ class MainActivity : ComponentActivity() {
 private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
     val receipts by viewModel.receipts.collectAsStateWithLifecycle(initialValue = emptyList())
     val navController = rememberNavController()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val context = LocalContext.current
+    val preferences = remember(context) { context.getSharedPreferences("receiptbox_settings", android.content.Context.MODE_PRIVATE) }
     var query by remember { mutableStateOf("") }
-    var darkTheme by remember { mutableStateOf(false) }
+    var darkTheme by remember { mutableStateOf(preferences.getBoolean("dark_theme", false)) }
 
     ReceiptBoxTheme(darkTheme = darkTheme) {
         val navigate: (String) -> Unit = { route -> navController.navigate(route) { launchSingleTop = true } }
         val goHome = { navController.navigate("home") { popUpTo("home") { inclusive = true }; launchSingleTop = true } }
+        val route = currentBackStackEntry?.destination?.route ?: "home"
 
         Scaffold(bottomBar = {
-            val route = navController.currentBackStackEntry?.destination?.route ?: "home"
             if (route == "home" || route == "tickets" || route == "add" || route == "stats" || route == "settings") {
                 BottomNav(route, navigate)
             }
@@ -44,7 +48,12 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
                     composable("tickets") { ReceiptListScreen(receipts, query, { query = it }, { id -> navigate("detail/$id") }) }
                     composable("add") { AddReceiptScreen(viewModel, { id -> navController.navigate("detail/$id") { popUpTo("home") } }, goHome) }
                     composable("stats") { StatisticsScreen(receipts) { goHome() } }
-                    composable("settings") { SettingsScreen(darkTheme, { darkTheme = it }) { goHome() } }
+                    composable("settings") {
+                        SettingsScreen(darkTheme, {
+                            darkTheme = it
+                            preferences.edit().putBoolean("dark_theme", it).apply()
+                        }) { goHome() }
+                    }
                     composable("detail/{id}") { entry ->
                         val id = entry.arguments?.getString("id")?.toLongOrNull()
                         val selected = receipts.firstOrNull { it.id == id }
