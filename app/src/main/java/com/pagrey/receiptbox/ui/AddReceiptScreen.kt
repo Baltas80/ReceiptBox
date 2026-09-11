@@ -44,6 +44,7 @@ import androidx.core.content.ContextCompat
 import com.pagrey.receiptbox.data.Receipt
 import com.pagrey.receiptbox.ocr.OcrResult
 import com.pagrey.receiptbox.ocr.ReceiptOcrProcessor
+import com.pagrey.receiptbox.util.parseReceiptAmount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -58,8 +59,8 @@ fun AddReceiptScreen(viewModel: ReceiptBoxViewModel, onSaved: (Long) -> Unit, on
 
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
-            val file = copyUriToFile(context, uri)
-            imageFile = file
+            copyUriToFile(context, uri)?.let { imageFile = it }
+                ?: run { error = "No se ha podido importar la imagen." }
         }
     }
 
@@ -90,9 +91,7 @@ fun AddReceiptScreen(viewModel: ReceiptBoxViewModel, onSaved: (Long) -> Unit, on
             Text("Analizando ticket…", modifier = Modifier.padding(top = 16.dp))
         }
     } else {
-        ReviewReceipt(ocr, imageFile!!, error, onCancel) { edited ->
-            viewModel.save(edited, onSaved)
-        }
+        ReviewReceipt(ocr, imageFile!!, error, onCancel) { edited -> viewModel.save(edited, onSaved) }
     }
 }
 
@@ -119,7 +118,7 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancelar") }
             Button(onClick = {
-                onSave(Receipt(merchant = merchant.trim(), date = date.trim(), total = total.toDoubleOrNull(), tax = tax.toDoubleOrNull(), receiptNumber = number.trim(), imagePath = file.absolutePath, rawText = ocr?.rawText.orEmpty()))
+                onSave(Receipt(merchant = merchant.trim(), date = date.trim(), total = parseReceiptAmount(total), tax = parseReceiptAmount(tax), receiptNumber = number.trim(), imagePath = file.absolutePath, rawText = ocr?.rawText.orEmpty()))
             }, modifier = Modifier.weight(1f)) { Text("Guardar") }
         }
         Spacer(Modifier.height(16.dp))
@@ -135,6 +134,7 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var hasPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasPermission = it }
     val imageCapture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build() }
     val previewView = remember { PreviewView(context) }
@@ -154,10 +154,12 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
     DisposableEffect(lifecycleOwner) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
-            val provider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-            provider.unbindAll()
-            provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+            runCatching {
+                val provider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+                provider.unbindAll()
+                provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+            }.onFailure { cameraError = "No se ha podido iniciar la cámara." }
         }, ContextCompat.getMainExecutor(context))
         onDispose { runCatching { cameraProviderFuture.get().unbindAll() } }
     }
@@ -165,13 +167,14 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
     Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
         Column(Modifier.align(Alignment.BottomCenter).padding(24.dp)) {
+            if (cameraError != null) Text(cameraError!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onGallery) { Text("Importar") }
                 Button(onClick = {
                     val file = File(context.filesDir, "receipts").apply { mkdirs() }.let { File(it, "receipt_${System.currentTimeMillis()}.jpg") }
                     imageCapture.takePicture(ImageCapture.OutputFileOptions.Builder(file).build(), ContextCompat.getMainExecutor(context), object : ImageCapture.OnImageSavedCallback {
                         override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) { onCaptured(file) }
-                        override fun onError(exception: ImageCaptureException) { }
+                        override fun onError(exception: ImageCaptureException) { cameraError = "No se ha podido guardar la foto." }
                     })
                 }) { Text("Fotografiar") }
             }
