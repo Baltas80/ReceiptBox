@@ -36,11 +36,10 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
         val navigate: (String) -> Unit = { route -> navController.navigate(route) { launchSingleTop = true } }
         val goHome = { navController.navigate("home") { popUpTo("home") { inclusive = true }; launchSingleTop = true } }
         val route = currentBackStackEntry?.destination?.route ?: "home"
+        val showBottomBar = route == "home" || route == "tickets" || route == "stats" || route == "settings"
 
         Scaffold(bottomBar = {
-            if (route == "home" || route == "tickets" || route == "add" || route == "stats" || route == "settings") {
-                BottomNav(route, navigate)
-            }
+            if (showBottomBar) BottomNav(route, navigate)
         }) { paddingValues ->
             Box(Modifier.padding(paddingValues)) {
                 NavHost(navController, startDestination = "home") {
