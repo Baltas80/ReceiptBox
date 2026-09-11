@@ -17,6 +17,28 @@ android {
         versionName = "0.1.0"
     }
 
+    val releaseStoreFile = System.getenv("RELEASE_STORE_FILE")
+    val releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+    val releaseSigningReady = listOf(
+        releaseStoreFile,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword
+    ).all { !it.isNullOrBlank() }
+
+    if (releaseSigningReady) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildFeatures { compose = true }
 
     compileOptions {
@@ -25,6 +47,15 @@ android {
     }
 
     kotlinOptions { jvmTarget = "17" }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
 }
 
 dependencies {
