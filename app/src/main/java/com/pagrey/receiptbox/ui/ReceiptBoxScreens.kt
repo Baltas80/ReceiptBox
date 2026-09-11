@@ -15,15 +15,33 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pagrey.receiptbox.data.Receipt
+import com.pagrey.receiptbox.util.parseReceiptAmount
 import java.text.NumberFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Locale
 
 private val euro = NumberFormat.getCurrencyInstance(Locale("es", "ES"))
 private val categories = listOf("Alimentación", "Hogar", "Transporte", "Salud", "Tecnología", "Ocio", "Ropa", "Otros")
+private val receiptDateFormatters = listOf(
+    DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+    DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+    DateTimeFormatter.ISO_LOCAL_DATE,
+    DateTimeFormatter.ofPattern("yyyy/MM/dd")
+)
 
 @Composable
 fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Unit, onSeeAll: () -> Unit) {
+    val today = remember { LocalDate.now() }
+    val monthReceipts = remember(receipts, today.year, today.monthValue) {
+        receipts.filter { receipt ->
+            parseReceiptDate(receipt.date)?.let { it.year == today.year && it.monthValue == today.monthValue } == true
+        }
+    }
+    val monthTotal = monthReceipts.sumOf { it.total ?: 0.0 }
     val total = receipts.sumOf { it.total ?: 0.0 }
+
     Scaffold(floatingActionButton = { FloatingActionButton(onClick = onAdd) { Icon(Icons.Default.Add, "Añadir ticket") } }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
@@ -33,9 +51,16 @@ fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Uni
                 Spacer(Modifier.height(12.dp))
                 Card(colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(18.dp)) {
-                        Text("Gasto registrado", style = MaterialTheme.typography.labelLarge)
-                        Text(euro.format(total), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        Text("${receipts.size} tickets guardados", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Gasto de este mes", style = MaterialTheme.typography.labelLarge)
+                        Text(euro.format(monthTotal), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        Text("${monthReceipts.size} tickets este mes · ${receipts.size} en total", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                OutlinedCard(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column { Text("Gasto acumulado", style = MaterialTheme.typography.labelLarge); Text(euro.format(total), fontWeight = FontWeight.SemiBold) }
+                        Column(horizontalAlignment = Alignment.End) { Text("Tickets", style = MaterialTheme.typography.labelLarge); Text(receipts.size.toString(), fontWeight = FontWeight.SemiBold) }
                     }
                 }
                 Button(onClick = onAdd, modifier = Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Default.Add, null); Text("  Añadir ticket") }
@@ -45,8 +70,15 @@ fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Uni
                 items(receipts.take(5), key = { it.id }) { ReceiptRow(it, onOpen) }
                 item { Button(onClick = onSeeAll, modifier = Modifier.fillMaxWidth()) { Text("Ver todos los tickets") } }
             }
+            item { AdBannerPlaceholder() }
             item { Spacer(Modifier.height(72.dp)) }
         }
+    }
+}
+
+@Composable private fun AdBannerPlaceholder() {
+    Surface(Modifier.fillMaxWidth().height(52.dp), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Box(contentAlignment = Alignment.Center) { Text("Espacio publicitario", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -67,7 +99,7 @@ fun ReceiptListScreen(receipts: List<Receipt>, query: String, onQuery: (String) 
             OutlinedTextField(query, onQuery, Modifier.fillMaxWidth(), placeholder = { Text("Buscar tickets") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true)
             Spacer(Modifier.height(12.dp))
             if (filtered.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(if (query.isBlank()) "No hay tickets todavía" else "No se han encontrado resultados") }
-            else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(filtered, key = { it.id }) { ReceiptRow(it, onOpen) } }
+            else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(filtered, key = { it.id }) { ReceiptRow(it, onOpen) }; item { Spacer(Modifier.height(8.dp)); AdBannerPlaceholder() } }
         }
     }
 }
@@ -127,16 +159,14 @@ fun ReceiptDetailScreen(receipt: Receipt?, onBack: () -> Unit, onDelete: (Receip
         OutlinedTextField(tax, { tax = it }, label = { Text("IVA") }, singleLine = true)
         OutlinedTextField(number, { number = it }, label = { Text("N.º de ticket") }, singleLine = true)
         Box { Button(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(category) }; DropdownMenu(expanded, { expanded = false }) { categories.forEach { item -> DropdownMenuItem(text = { Text(item) }, onClick = { category = item; expanded = false }) } } }
-    } }, confirmButton = { Button(onClick = { onSave(receipt.copy(merchant = merchant.trim(), date = date.trim(), total = parseAmount(total), tax = parseAmount(tax), receiptNumber = number.trim(), category = category)) }) { Text("Guardar") } }, dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } })
+    } }, confirmButton = { Button(onClick = { onSave(receipt.copy(merchant = merchant.trim(), date = date.trim(), total = parseReceiptAmount(total), tax = parseReceiptAmount(tax), receiptNumber = number.trim(), category = category)) }) { Text("Guardar") } }, dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } })
 }
 
-private fun parseAmount(value: String): Double? {
-    val raw = value.trim().replace(" ", "")
-    if (raw.isBlank()) return null
-    return when {
-        raw.contains(',') && raw.contains('.') -> if (raw.lastIndexOf(',') > raw.lastIndexOf('.')) raw.replace(".", "").replace(',', '.').toDoubleOrNull() else raw.replace(",", "").toDoubleOrNull()
-        raw.contains(',') -> raw.replace(',', '.').toDoubleOrNull()
-        else -> raw.toDoubleOrNull()
+private fun parseReceiptDate(value: String): LocalDate? {
+    val clean = value.trim()
+    if (clean.isEmpty()) return null
+    return receiptDateFormatters.firstNotNullOfOrNull { formatter ->
+        try { LocalDate.parse(clean, formatter) } catch (_: DateTimeParseException) { null }
     }
 }
 
