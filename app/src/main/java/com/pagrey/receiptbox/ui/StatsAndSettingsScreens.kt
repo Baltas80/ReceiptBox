@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.pagrey.receiptbox.data.Receipt
 import com.pagrey.receiptbox.util.ReceiptBackup
 import com.pagrey.receiptbox.util.ReceiptCsvExporter
+import com.pagrey.receiptbox.util.ReceiptPdfExporter
 import com.pagrey.receiptbox.util.parseReceiptDate
 import java.text.NumberFormat
 import java.time.LocalDate
@@ -101,12 +102,21 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
     val backupContent = remember(receipts) { ReceiptBackup.export(receipts) }
     val csvExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
-            context.contentResolver.openOutputStream(uri)?.use { it.write(csvContent.toByteArray(Charsets.UTF_8)) }
+            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(csvContent.toByteArray(Charsets.UTF_8)) } }
+                .onFailure { Toast.makeText(context, "No se pudo exportar el CSV", Toast.LENGTH_LONG).show() }
         }
     }
     val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
-            context.contentResolver.openOutputStream(uri)?.use { it.write(backupContent.toByteArray(Charsets.UTF_8)) }
+            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(backupContent.toByteArray(Charsets.UTF_8)) } }
+                .onFailure { Toast.makeText(context, "No se pudo crear la copia", Toast.LENGTH_LONG).show() }
+        }
+    }
+    val pdfExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
+            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(ReceiptPdfExporter.export(receipts)) } }
+                .onSuccess { Toast.makeText(context, "PDF exportado", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(context, "No se pudo exportar el PDF", Toast.LENGTH_LONG).show() }
         }
     }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -149,6 +159,11 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
                                 TextButton(onClick = { backupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/json"; putExtra(Intent.EXTRA_TITLE, "receiptbox_backup.json") }) }) { Text("Crear") }
                                 TextButton(onClick = { restoreLauncher.launch(arrayOf("application/json", "text/plain")) }) { Text("Restaurar") }
                             }
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.PictureAsPdf, null, Modifier.size(24.dp))
+                            Column(Modifier.weight(1f).padding(start = 14.dp)) { Text("Exportar PDF", fontWeight = FontWeight.SemiBold); Text("Informe · ${receipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            TextButton(onClick = { pdfExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/pdf"; putExtra(Intent.EXTRA_TITLE, "receiptbox_tickets.pdf") }) }) { Text("Exportar") }
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.FileDownload, null, Modifier.size(24.dp))
