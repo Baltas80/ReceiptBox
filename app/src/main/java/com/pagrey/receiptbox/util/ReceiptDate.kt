@@ -3,12 +3,13 @@ package com.pagrey.receiptbox.util
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.time.format.ResolverStyle
 
 private val receiptDateFormatters = listOf(
-    DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-    DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+    DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT),
+    DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(ResolverStyle.STRICT),
     DateTimeFormatter.ISO_LOCAL_DATE,
-    DateTimeFormatter.ofPattern("yyyy/MM/dd")
+    DateTimeFormatter.ofPattern("uuuu/MM/dd").withResolverStyle(ResolverStyle.STRICT)
 )
 
 fun parseReceiptDate(value: String): LocalDate? {
