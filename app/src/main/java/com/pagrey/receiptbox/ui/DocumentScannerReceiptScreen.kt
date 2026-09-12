@@ -50,6 +50,7 @@ import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.pagrey.receiptbox.data.Receipt
 import com.pagrey.receiptbox.ocr.OcrResult
+import com.pagrey.receiptbox.ocr.PocketScanImageEnhancer
 import com.pagrey.receiptbox.ocr.ReceiptOcrProcessor
 import com.pagrey.receiptbox.util.parseReceiptAmount
 import java.io.File
@@ -122,27 +123,15 @@ fun DocumentScannerReceiptScreen(
 
     when {
         imageFile == null && error == null -> {
-            Column(
-                Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 CircularProgressIndicator()
                 Text("Preparando escáner de tickets…", modifier = Modifier.padding(top = 16.dp))
-                Text(
-                    "Detectará y recortará automáticamente el ticket.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Text("Detectará, recortará y mejorará automáticamente el ticket.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                 Button(onClick = onCancel, modifier = Modifier.padding(top = 20.dp)) { Text("Cancelar") }
             }
         }
         imageFile == null -> {
-            Column(
-                Modifier.fillMaxSize().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
+            Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Text("No se ha podido iniciar el escáner.", style = MaterialTheme.typography.titleLarge)
                 Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                 Button(onClick = onCancel, modifier = Modifier.padding(top = 20.dp)) { Text("Volver") }
@@ -181,11 +170,9 @@ private fun ScannerReviewReceipt(
     val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
     val scrollState = rememberScrollState()
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(scrollState).imePadding().padding(16.dp)
-    ) {
+    Column(Modifier.fillMaxSize().verticalScroll(scrollState).imePadding().padding(16.dp)) {
         Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium)
-        Text("El documento ya ha sido recortado y enderezado. Comprueba los datos antes de guardar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("El documento ha sido recortado, enderezado y optimizado para OCR. Comprueba los datos antes de guardar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (bitmap != null) {
             Spacer(Modifier.height(12.dp))
             Image(bitmap.asImageBitmap(), "Ticket escaneado", Modifier.fillMaxWidth().height(220.dp))
@@ -193,20 +180,11 @@ private fun ScannerReviewReceipt(
         Spacer(Modifier.height(12.dp))
         Card(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber,
-                    null,
-                    Modifier.size(28.dp),
-                    tint = if (missing == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
+                Icon(if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber, null, Modifier.size(28.dp), tint = if (missing == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(if (missing == 0) "Datos detectados" else "Revisión necesaria", fontWeight = FontWeight.SemiBold)
-                    Text(
-                        if (missing == 0) "Los campos principales están completos."
-                        else "Hay $missing campos que necesitan revisión.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(if (missing == 0) "Los campos principales están completos." else "Hay $missing campos que necesitan revisión.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -231,7 +209,7 @@ private fun ScannerReviewReceipt(
                 onClick = {
                     val parsedTotal = parseReceiptAmount(total)
                     if (!merchantInvalid && parsedTotal != null && parsedTotal > 0.0) {
-                        onSave(Receipt(merchant.trim(), date.trim(), parsedTotal, parseReceiptAmount(tax), number.trim(), category, file.absolutePath, ocr?.rawText.orEmpty()))
+                        onSave(Receipt(merchant = merchant.trim(), date = date.trim(), total = parsedTotal, tax = parseReceiptAmount(tax), receiptNumber = number.trim(), category = category, imagePath = file.absolutePath, rawText = ocr?.rawText.orEmpty()))
                     }
                 },
                 enabled = !merchantInvalid && !totalInvalid,
@@ -259,5 +237,11 @@ private fun copyScannerUriToFile(context: Context, uri: Uri): File? = runCatchin
     val dir = File(context.filesDir, "receipts").apply { mkdirs() }
     val file = File(dir, "receipt_${System.currentTimeMillis()}.jpg")
     context.contentResolver.openInputStream(uri)!!.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
+    val enhanced = File(dir, file.nameWithoutExtension + "_ocr.jpg")
+    if (PocketScanImageEnhancer.enhanceToJpeg(context, Uri.fromFile(file), enhanced)) {
+        if (file.delete()) enhanced.renameTo(file) else enhanced.delete()
+    } else {
+        enhanced.delete()
+    }
     file
 }.getOrNull()
