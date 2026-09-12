@@ -48,7 +48,7 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
                     composable("add") { AddReceiptScreen(viewModel, { id -> navController.navigate("detail/$id") { popUpTo("home") } }, goHome) }
                     composable("stats") { StatisticsScreen(receipts) { goHome() } }
                     composable("settings") {
-                        SettingsScreen(darkTheme, {
+                        SettingsScreen(receipts, darkTheme, {
                             darkTheme = it
                             preferences.edit().putBoolean("dark_theme", it).apply()
                         }) { goHome() }
