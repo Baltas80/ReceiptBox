@@ -230,7 +230,13 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
     var flashEnabled by remember { mutableStateOf(false) }
     var hasFlash by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasPermission = it }
-    val imageCapture = remember { ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).setFlashMode(ImageCapture.FLASH_MODE_OFF).build() }
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            .setJpegQuality(95)
+            .setFlashMode(ImageCapture.FLASH_MODE_OFF)
+            .build()
+    }
     val previewView = remember { PreviewView(context) }
     LaunchedEffect(Unit) { if (!hasPermission) permission.launch(Manifest.permission.CAMERA) }
 
@@ -303,6 +309,7 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onGallery) { Text("Importar") }
                 Button(onClick = {
+                    previewView.display?.rotation?.let { imageCapture.targetRotation = it }
                     val dir = File(context.filesDir, "receipts").apply { mkdirs() }
                     val file = File(dir, "receipt_${System.currentTimeMillis()}.jpg")
                     imageCapture.takePicture(ImageCapture.OutputFileOptions.Builder(file).build(), ContextCompat.getMainExecutor(context), object : ImageCapture.OnImageSavedCallback {
