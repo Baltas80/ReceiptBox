@@ -125,22 +125,22 @@ fun DocumentScannerReceiptScreen(
         imageFile == null && error == null -> {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 CircularProgressIndicator()
-                Text("Preparando escáner de tickets…", modifier = Modifier.padding(top = 16.dp))
-                Text("Detectará, recortará y mejorará automáticamente el ticket.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
-                Button(onClick = onCancel, modifier = Modifier.padding(top = 20.dp)) { Text("Cancelar") }
+                Text("Preparando escáner de tickets…", modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
+                Text("Detectará, recortará y mejorará automáticamente el ticket.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
+                Button(onClick = onCancel, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Cancelar") }
             }
         }
         imageFile == null -> {
-            Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Column(Modifier.fillMaxSize().padding(ReceiptBoxDesign.SCREEN_PADDING), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Text("No se ha podido iniciar el escáner.", style = MaterialTheme.typography.titleLarge)
-                Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
-                Button(onClick = onCancel, modifier = Modifier.padding(top = 20.dp)) { Text("Volver") }
+                Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
+                Button(onClick = onCancel, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Volver") }
             }
         }
         processing -> {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 CircularProgressIndicator()
-                Text("Analizando ticket…", modifier = Modifier.padding(top = 16.dp))
+                Text("Analizando ticket…", modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
             }
         }
         else -> ScannerReviewReceipt(ocr, imageFile!!, error, onCancel) { edited -> viewModel.save(edited, onSaved) }
@@ -166,56 +166,68 @@ private fun ScannerReviewReceipt(
     val totalValue = parseReceiptAmount(total)
     val merchantInvalid = merchant.isBlank() || merchant.trim().length < 2
     val totalInvalid = totalValue == null || totalValue <= 0.0
-    val missing = listOf(merchantInvalid, date.isBlank(), totalInvalid).count { it }
+    val dateInvalid = date.isBlank()
+    val missing = listOf(merchantInvalid, dateInvalid, totalInvalid).count { it }
     val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
     val scrollState = rememberScrollState()
 
-    Column(Modifier.fillMaxSize().verticalScroll(scrollState).imePadding().padding(16.dp)) {
-        Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium)
-        Text("El documento ha sido recortado, enderezado y optimizado para OCR. Comprueba los datos antes de guardar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(Modifier.fillMaxSize().verticalScroll(scrollState).imePadding().padding(ReceiptBoxDesign.SCREEN_PADDING)) {
+        Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Comprueba los datos detectados antes de guardarlo. Puedes corregir cualquier campo.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
+
         if (bitmap != null) {
-            Spacer(Modifier.height(12.dp))
-            Image(bitmap.asImageBitmap(), "Ticket escaneado", Modifier.fillMaxWidth().height(220.dp))
+            Spacer(Modifier.height(ReceiptBoxDesign.ITEM_SPACING))
+            Card(Modifier.fillMaxWidth()) {
+                Image(bitmap.asImageBitmap(), "Ticket escaneado", Modifier.fillMaxWidth().height(ReceiptBoxDesign.PREVIEW_HEIGHT).padding(ReceiptBoxDesign.REVIEW_CARD_PADDING))
+            }
         }
-        Spacer(Modifier.height(12.dp))
+
+        Spacer(Modifier.height(ReceiptBoxDesign.SECTION_SPACING))
         Card(Modifier.fillMaxWidth()) {
-            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(ReceiptBoxDesign.REVIEW_CARD_PADDING), verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber, null, Modifier.size(28.dp), tint = if (missing == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(ReceiptBoxDesign.COMPACT_SPACING))
                 Column(Modifier.weight(1f)) {
                     Text(if (missing == 0) "Datos detectados" else "Revisión necesaria", fontWeight = FontWeight.SemiBold)
                     Text(if (missing == 0) "Los campos principales están completos." else "Hay $missing campos que necesitan revisión.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-        if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
-        OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = 12.dp), label = { Text("Comercio") }, singleLine = true, isError = merchantInvalid)
-        OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Fecha") }, singleLine = true)
-        OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Total") }, singleLine = true, isError = totalInvalid)
+
+        if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
+
+        Text("Datos principales", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING))
+        OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.COMPACT_SPACING), label = { Text("Comercio") }, singleLine = true, isError = merchantInvalid)
+        OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.FIELD_SPACING), label = { Text("Fecha") }, supportingText = { Text("Ejemplo: 13/09/2026") }, singleLine = true, isError = dateInvalid)
+        OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.FIELD_SPACING), label = { Text("Total") }, singleLine = true, isError = totalInvalid)
         if (totalInvalid) Text("Introduce un total válido mayor que 0 €.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(tax, { tax = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("IVA") }, singleLine = true)
-        OutlinedTextField(number, { number = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("N.º de ticket") }, singleLine = true)
-        Spacer(Modifier.height(8.dp))
+
+        Text("Información adicional", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING))
+        OutlinedTextField(tax, { tax = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.COMPACT_SPACING), label = { Text("IVA") }, singleLine = true)
+        OutlinedTextField(number, { number = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.FIELD_SPACING), label = { Text("N.º de ticket") }, singleLine = true)
+        Spacer(Modifier.height(ReceiptBoxDesign.FIELD_SPACING))
         androidx.compose.foundation.layout.Box {
-            Button(onClick = { categoryExpanded = true }, modifier = Modifier.fillMaxWidth()) { Text("Categoría: $category") }
+            Button(onClick = { categoryExpanded = true }, modifier = Modifier.fillMaxWidth().height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Categoría: $category") }
             DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
                 scannerCategories.forEach { item -> DropdownMenuItem(text = { Text(item) }, onClick = { category = item; categoryExpanded = false }) }
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancelar") }
+
+        Spacer(Modifier.height(ReceiptBoxDesign.SECTION_SPACING))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ReceiptBoxDesign.COMPACT_SPACING)) {
+            Button(onClick = onCancel, modifier = Modifier.weight(1f).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Cancelar") }
             Button(
                 onClick = {
                     val parsedTotal = parseReceiptAmount(total)
-                    if (!merchantInvalid && parsedTotal != null && parsedTotal > 0.0) {
+                    if (!merchantInvalid && !dateInvalid && parsedTotal != null && parsedTotal > 0.0) {
                         onSave(Receipt(merchant = merchant.trim(), date = date.trim(), total = parsedTotal, tax = parseReceiptAmount(tax), receiptNumber = number.trim(), category = category, imagePath = file.absolutePath, rawText = ocr?.rawText.orEmpty()))
                     }
                 },
-                enabled = !merchantInvalid && !totalInvalid,
-                modifier = Modifier.weight(1f)
+                enabled = !merchantInvalid && !dateInvalid && !totalInvalid,
+                modifier = Modifier.weight(1f).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)
             ) { Text("Guardar") }
         }
+        Spacer(Modifier.height(ReceiptBoxDesign.ITEM_SPACING))
     }
 }
 
