@@ -21,6 +21,9 @@ interface ReceiptDao {
     @Insert
     suspend fun insert(receipt: Receipt): Long
 
+    @Insert
+    suspend fun insertAll(receipts: List<Receipt>): List<Long>
+
     @Update
     suspend fun update(receipt: Receipt)
 
