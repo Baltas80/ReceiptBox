@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ReceiptBox premium app icon: indigo base, receipt tray and teal validation badge. -->
+    <path
+        android:fillColor="#17113F"
+        android:pathData="M0,0h108v108h-108z" />
+    <path
+        android:fillColor="#5B4BDB"
+        android:pathData="M10,10h88a10,10 0,0 1,10 10v68a10,10 0,0 1,-10 10h-88a10,10 0,0 1,-10 -10v-68a10,10 0,0 1,10 -10z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,18h44v46l-5,4 -5,-4 -5,4 -5,-4 -5,4 -5,-4 -5,4 -5,-4z" />
+    <path
+        android:fillColor="#B9B0E8"
+        android:pathData="M39,29h25v4h-25zM39,38h31v4h-31zM39,47h23v4h-23z" />
+    <path
+        android:fillColor="#2A225F"
+        android:pathData="M70,28h5v7h7v5h-7v7h-5v-7h-7v-5h7z" />
+    <path
+        android:fillColor="#34258F"
+        android:pathData="M18,58h72a8,8 0,0 1,8 8v23a8,8 0,0 1,-8 8h-72a8,8 0,0 1,-8 -8v-23a8,8 0,0 1,8 -8z" />
+    <path
+        android:fillColor="#7C5CFF"
+        android:pathData="M20,62h68a4,4 0,0 1,4 4v4h-76v-4a4,4 0,0 1,4 -4z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M39,76h-5v-5M69,76h5v-5M39,82h-5v5M69,82h5v5M44,80h20" />
+    <path
+        android:fillColor="#0E9F92"
+        android:pathData="M82,69a12,12 0,1 0,0 24a12,12 0,0 0,0 -24z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M77,81l4,4 7,-8" />
+</vector>
