@@ -40,9 +40,7 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
         .toList().sortedByDescending { it.second }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Estadísticas", fontWeight = FontWeight.Bold) }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Volver") }
-        })
+        TopAppBar(title = { Text("Estadísticas", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Volver") } })
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp), contentPadding = PaddingValues(bottom = 88.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
@@ -110,7 +108,6 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
                 .onFailure { Toast.makeText(context, "No se pudo crear la copia", Toast.LENGTH_LONG).show() }
         }
     }
-    val pdfExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForActivityResult()) { }
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
             runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(ReceiptPdfExporter.export(receipts)) } }
@@ -154,10 +151,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Backup, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                             Column(Modifier.weight(1f).padding(start = 14.dp)) { Text("Copia de seguridad", fontWeight = FontWeight.SemiBold); Text("JSON · ${receipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                            Row {
-                                TextButton(onClick = { backupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/json"; putExtra(Intent.EXTRA_TITLE, "receiptbox_backup.json") }) }) { Text("Crear") }
-                                TextButton(onClick = { restoreLauncher.launch(arrayOf("application/json", "text/plain")) }) { Text("Restaurar") }
-                            }
+                            Row { TextButton(onClick = { backupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/json"; putExtra(Intent.EXTRA_TITLE, "receiptbox_backup.json") }) }) { Text("Crear") }; TextButton(onClick = { restoreLauncher.launch(arrayOf("application/json", "text/plain")) }) { Text("Restaurar") } }
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.PictureAsPdf, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
