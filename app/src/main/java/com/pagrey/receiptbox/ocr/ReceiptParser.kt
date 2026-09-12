@@ -53,26 +53,37 @@ object ReceiptParser {
     private fun findAmount(text: String, labels: List<String>): Double? {
         val labelPattern = labels.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
         val labelLineRegex = Regex("(?im)^.*(?<![\\p{L}\\p{N}])(?:$labelPattern)(?![\\p{L}\\p{N}]).*$")
-        val matches = labelLineRegex.findAll(text).toList()
 
-        for (match in matches) {
+        // Prefer an amount on the same line as an explicit label. Reject subtotal/discount
+        // lines so a common OCR ordering (SUBTOTAL ... TOTAL ...) cannot leak the wrong value.
+        for (match in labelLineRegex.findAll(text)) {
             val line = match.value
-            val amounts = AMOUNT_REGEX.findAll(line).mapNotNull { parseNumber(it.value) }.toList()
+            val normalized = normalizeLabel(line)
+            if (isExcludedAmountLine(normalized)) continue
+            val amounts = AMOUNT_REGEX.findAll(line).mapNotNull { parseCandidate(it.value) }.toList()
             if (amounts.isNotEmpty()) return amounts.last()
         }
 
-        // OCR frequently inserts spaces or punctuation inside labels (e.g. T O T A L).
-        // Normalize each line and retry without weakening SUBTOTAL protection.
+        // OCR may split labels ("T O T A L", "I M P O R T E") or corrupt punctuation.
+        // Compare canonical letters only, but keep SUBTOTAL/SUB TOTAL explicitly excluded.
         val normalizedLabels = labels.map { normalizeLabel(it) }
         for (line in text.lines()) {
             val normalized = normalizeLabel(line)
-            if (normalizedLabels.any { normalized.contains(it) } && !normalized.contains("SUBTOTAL")) {
-                val amounts = AMOUNT_REGEX.findAll(line).mapNotNull { parseNumber(it.value) }.toList()
+            if (isExcludedAmountLine(normalized)) continue
+            if (normalizedLabels.any { normalized.contains(it) }) {
+                val amounts = AMOUNT_REGEX.findAll(line).mapNotNull { parseCandidate(it.value) }.toList()
                 if (amounts.isNotEmpty()) return amounts.last()
             }
         }
         return null
     }
+
+    private fun isExcludedAmountLine(normalized: String): Boolean =
+        normalized.contains("SUBTOTAL") || normalized.contains("SUBTOTAL") ||
+            normalized.contains("DESCUENTO") || normalized.contains("DISCOUNT")
+
+    private fun parseCandidate(value: String): Double? =
+        parseReceiptAmount(value)?.takeIf { it in 0.01..100_000.0 }
 
     private fun normalizeLabel(value: String): String =
         value.uppercase().filter { it.isLetter() }
