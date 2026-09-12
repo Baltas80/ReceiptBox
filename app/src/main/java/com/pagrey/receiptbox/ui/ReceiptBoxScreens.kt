@@ -18,18 +18,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pagrey.receiptbox.data.Receipt
 import com.pagrey.receiptbox.util.parseReceiptAmount
+import com.pagrey.receiptbox.util.parseReceiptDate
 import java.text.NumberFormat
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
 import java.util.Locale
 
 private val euro = NumberFormat.getCurrencyInstance(Locale("es", "ES"))
 private val categories = listOf("Alimentación", "Hogar", "Transporte", "Salud", "Tecnología", "Ocio", "Ropa", "Otros")
-private val receiptDateFormatters = listOf(
-    DateTimeFormatter.ofPattern("dd/MM/yyyy"), DateTimeFormatter.ofPattern("dd-MM-yyyy"),
-    DateTimeFormatter.ISO_LOCAL_DATE, DateTimeFormatter.ofPattern("yyyy/MM/dd")
-)
 
 @Composable
 fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Unit, onSeeAll: () -> Unit) {
@@ -37,6 +32,7 @@ fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Uni
     val monthReceipts = remember(receipts, today.year, today.monthValue) {
         receipts.filter { receipt -> parseReceiptDate(receipt.date)?.let { it.year == today.year && it.monthValue == today.monthValue } == true }
     }
+    val orderedReceipts = remember(receipts) { sortReceipts(receipts) }
     val monthTotal = monthReceipts.sumOf { it.total ?: 0.0 }
     val total = receipts.sumOf { it.total ?: 0.0 }
     Scaffold(floatingActionButton = { FloatingActionButton(onClick = onAdd) { Icon(Icons.Default.Add, "Añadir ticket") } }) { padding ->
@@ -63,8 +59,8 @@ fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Uni
                 Button(onClick = onAdd, modifier = Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Default.Add, null); Text("  Añadir ticket") }
                 Text("Tickets recientes", style = MaterialTheme.typography.titleLarge)
             }
-            if (receipts.isEmpty()) item { EmptyState() } else {
-                items(receipts.take(5), key = { it.id }) { ReceiptRow(it, onOpen) }
+            if (orderedReceipts.isEmpty()) item { EmptyState() } else {
+                items(orderedReceipts.take(5), key = { it.id }) { ReceiptRow(it, onOpen) }
                 item { Button(onClick = onSeeAll, modifier = Modifier.fillMaxWidth()) { Text("Ver todos los tickets") } }
             }
             item { AdBannerPlaceholder() }
@@ -90,7 +86,10 @@ fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Uni
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReceiptListScreen(receipts: List<Receipt>, query: String, onQuery: (String) -> Unit, onOpen: (Long) -> Unit) {
-    val filtered = remember(receipts, query) { if (query.isBlank()) receipts else receipts.filter { it.merchant.contains(query, true) || it.rawText.contains(query, true) || it.category.contains(query, true) } }
+    val filtered = remember(receipts, query) {
+        val matching = if (query.isBlank()) receipts else receipts.filter { it.merchant.contains(query, true) || it.rawText.contains(query, true) || it.category.contains(query, true) }
+        sortReceipts(matching)
+    }
     Scaffold(topBar = { TopAppBar(title = { Text("Tickets") }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             OutlinedTextField(query, onQuery, Modifier.fillMaxWidth(), placeholder = { Text("Buscar tickets") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true)
@@ -100,6 +99,11 @@ fun ReceiptListScreen(receipts: List<Receipt>, query: String, onQuery: (String) 
         }
     }
 }
+
+private fun sortReceipts(receipts: List<Receipt>): List<Receipt> = receipts.sortedWith(
+    compareByDescending<Receipt> { parseReceiptDate(it.date) ?: LocalDate.MIN }
+        .thenByDescending { it.createdAt }
+)
 
 @Composable private fun ReceiptRow(receipt: Receipt, onOpen: (Long) -> Unit) {
     Card(onClick = { onOpen(receipt.id) }, modifier = Modifier.fillMaxWidth()) { Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -191,12 +195,6 @@ fun ReceiptDetailScreen(receipt: Receipt?, onBack: () -> Unit, onDelete: (Receip
         },
         dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } }
     )
-}
-
-private fun parseReceiptDate(value: String): LocalDate? {
-    val clean = value.trim()
-    if (clean.isEmpty()) return null
-    return receiptDateFormatters.firstNotNullOfOrNull { formatter -> try { LocalDate.parse(clean, formatter) } catch (_: DateTimeParseException) { null } }
 }
 
 @Composable private fun DetailField(label: String, value: String) { Column(Modifier.fillMaxWidth()) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value.ifBlank { "—" }) } }
