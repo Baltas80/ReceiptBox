@@ -17,7 +17,7 @@ class ReceiptCsvExporterTest {
                 tax = 214.56,
                 receiptNumber = "A-42",
                 category = "Alimentación",
-                imagePath = null,
+                imagePath = "",
                 rawText = "texto",
                 createdAt = 1L
             )
@@ -40,7 +40,7 @@ class ReceiptCsvExporterTest {
                 tax = null,
                 receiptNumber = "",
                 category = "Otros",
-                imagePath = null,
+                imagePath = "",
                 rawText = "",
                 createdAt = 1L
             )
