@@ -30,6 +30,11 @@ class ReceiptBoxViewModel(application: Application) : AndroidViewModel(applicati
         onSaved(id)
     }
 
+    fun restore(receipts: List<Receipt>, onRestored: (Int) -> Unit = {}) = viewModelScope.launch {
+        if (receipts.isNotEmpty()) repository.insertAll(receipts.map { it.copy(id = 0L) })
+        onRestored(receipts.size)
+    }
+
     fun get(id: Long, onResult: (Receipt?) -> Unit) = viewModelScope.launch {
         onResult(repository.getById(id))
     }
