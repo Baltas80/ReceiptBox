@@ -6,7 +6,7 @@ import androidx.compose.ui.unit.dp
  * ReceiptBox visual direction and shared design tokens.
  *
  * Keep visual decisions here so screens and the Material theme use the same
- * spacing and corner language instead of accumulating one-off values.
+ * spacing, sizing and corner language instead of accumulating one-off values.
  *
  * Design principles:
  * - Fast capture: primary action is always visually dominant.
@@ -27,8 +27,15 @@ object ReceiptBoxDesign {
     val SCREEN_PADDING = 18.dp
     val COMPACT_SPACING = 8.dp
     val ITEM_SPACING = 14.dp
+    val SECTION_SPACING = 20.dp
     val CARD_PADDING = 16.dp
+    val FIELD_SPACING = 8.dp
     val TOUCH_TARGET = 48.dp
+    val PRIMARY_BUTTON_HEIGHT = 52.dp
+
+    // Scanner/review surfaces.
+    val PREVIEW_HEIGHT = 220.dp
+    val REVIEW_CARD_PADDING = 14.dp
 
     // Shared corner language: compact controls -> cards -> hero surfaces.
     val CORNER_COMPACT = 10.dp
