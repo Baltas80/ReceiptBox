@@ -68,6 +68,20 @@ import java.io.File
 
 private val receiptCategories = listOf("Alimentación", "Hogar", "Transporte", "Salud", "Tecnología", "Ocio", "Ropa", "Otros")
 
+private fun suggestCategory(merchant: String): String {
+    val value = merchant.lowercase()
+    return when {
+        listOf("mercadona", "carrefour", "dia", "lidl", "aldi", "alcampo", "supermercado", "market", "grocery", "panaderia", "panadería", "carniceria", "carnicería").any(value::contains) -> "Alimentación"
+        listOf("ikea", "leroy", "bricomart", "ferreteria", "ferretería", "hogar", "muebles").any(value::contains) -> "Hogar"
+        listOf("uber", "cabify", "repsol", "cepsa", "bp ", "gasolinera", "parking", "aparcam").any(value::contains) -> "Transporte"
+        listOf("farmacia", "hospital", "clinica", "clínica", "salud", "dentista", "optica", "óptica").any(value::contains) -> "Salud"
+        listOf("mediamarkt", "media markt", "pccomponentes", "apple", "fnac", "informatica", "informática", "electro").any(value::contains) -> "Tecnología"
+        listOf("cine", "teatro", "spotify", "netflix", "ocio", "parque").any(value::contains) -> "Ocio"
+        listOf("zara", "h&m", "primark", "mango", "decathlon", "sprinter", "ropa").any(value::contains) -> "Ropa"
+        else -> "Otros"
+    }
+}
+
 @Composable
 fun AddReceiptScreen(viewModel: ReceiptBoxViewModel, onSaved: (Long) -> Unit, onCancel: () -> Unit) {
     val context = LocalContext.current
@@ -116,7 +130,7 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
     var total by remember(parsed) { mutableStateOf(parsed?.total?.toString().orEmpty()) }
     var tax by remember(parsed) { mutableStateOf(parsed?.tax?.toString().orEmpty()) }
     var number by remember(parsed) { mutableStateOf(parsed?.receiptNumber.orEmpty()) }
-    var category by remember(parsed) { mutableStateOf("Otros") }
+    var category by remember(parsed) { mutableStateOf(suggestCategory(parsed?.merchant.orEmpty())) }
     var categoryExpanded by remember { mutableStateOf(false) }
     val totalValue = parseReceiptAmount(total)
     val merchantInvalid = merchant.isBlank() || merchant.trim().length < 2
