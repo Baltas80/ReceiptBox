@@ -1,5 +1,6 @@
 package com.pagrey.receiptbox.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -8,8 +9,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.unit.dp
+import com.pagrey.receiptbox.ui.ReceiptBoxDesign
 
 private val Ink = Color(0xFF17151F)
 private val Muted = Color(0xFF6F6A78)
@@ -60,11 +60,11 @@ private val DarkColors = darkColorScheme(
 )
 
 private val ReceiptShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(14.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(26.dp),
-    extraLarge = RoundedCornerShape(32.dp)
+    extraSmall = RoundedCornerShape(ReceiptBoxDesign.CORNER_COMPACT),
+    small = RoundedCornerShape(ReceiptBoxDesign.CORNER_SMALL),
+    medium = RoundedCornerShape(ReceiptBoxDesign.CORNER_MEDIUM),
+    large = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE),
+    extraLarge = RoundedCornerShape(ReceiptBoxDesign.CORNER_EXTRA_LARGE)
 )
 
 private val ReceiptTypography = Typography().run {
