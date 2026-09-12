@@ -108,4 +108,29 @@ class ReceiptParserTest {
 
         assertEquals(12.10, result.total!!, 0.001)
     }
+
+    @Test
+    fun recoversTotalWhenOcrSplitsTheLabel() {
+        val raw = """
+            TIENDA EJEMPLO
+            T O T A L : 123,96
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals(123.96, result.total!!, 0.001)
+    }
+
+    @Test
+    fun ignoresDigitPrefixedOcrNoiseWhenChoosingMerchant() {
+        val raw = """
+            1URA DE DETALLISTAS DE ALIMENTACION
+            27/08/2026
+            TOTAL A PAGAR 29,04
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals("TOTAL A PAGAR", result.merchant)
+    }
 }
