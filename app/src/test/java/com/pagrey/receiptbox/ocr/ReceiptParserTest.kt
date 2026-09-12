@@ -131,6 +131,6 @@ class ReceiptParserTest {
 
         val result = ReceiptParser.parse(raw)
 
-        assertEquals("TOTAL A PAGAR", result.merchant)
+        assertEquals("", result.merchant)
     }
 }
