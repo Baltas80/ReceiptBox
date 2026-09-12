@@ -43,7 +43,7 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
                 NavHost(navController, startDestination = "home") {
                     composable("home") { HomeScreen(receipts, { navigate("add") }, { id -> navigate("detail/$id") }, { navigate("tickets") }) }
                     composable("tickets") { ReceiptListScreen(receipts, query, { query = it }, { id -> navigate("detail/$id") }) }
-                    composable("add") { AddReceiptScreen(viewModel, { id -> navController.navigate("detail/$id") { popUpTo("home") } }, goHome) }
+                    composable("add") { DocumentScannerReceiptScreen(viewModel, { id -> navController.navigate("detail/$id") { popUpTo("home") } }, goHome) }
                     composable("stats") { StatisticsScreen(receipts) { goHome() } }
                     composable("settings") {
                         SettingsScreen(receipts, darkTheme, {
