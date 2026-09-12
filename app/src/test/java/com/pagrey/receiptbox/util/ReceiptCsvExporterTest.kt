@@ -21,7 +21,7 @@ class ReceiptCsvExporterTest {
                 rawText = "texto",
                 createdAt = 1L
             )
-        )
+        ))
 
         assertTrue(csv.startsWith("ID;Comercio;Fecha;Total;IVA;Número de ticket;Categoría\n"))
         assertTrue(csv.contains("\"Café \"\"Centro\"\"\""))
@@ -44,7 +44,7 @@ class ReceiptCsvExporterTest {
                 rawText = "",
                 createdAt = 1L
             )
-        )
+        ))
 
         assertEquals(2, csv.lines().size)
         assertTrue(csv.lines()[1].contains("\"Tienda\""))
