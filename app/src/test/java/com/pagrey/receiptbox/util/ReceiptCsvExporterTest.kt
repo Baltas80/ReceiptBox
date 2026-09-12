@@ -46,7 +46,7 @@ class ReceiptCsvExporterTest {
             )
         ))
 
-        assertEquals(2, csv.lines().size)
+        assertEquals(3, csv.lines().size)
         assertTrue(csv.lines()[1].contains("\"Tienda\""))
         assertTrue(csv.lines()[1].contains(";\"\";\"\";\"\";\"Otros\""))
     }
