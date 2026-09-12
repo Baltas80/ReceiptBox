@@ -53,4 +53,32 @@ class ReceiptParserTest {
         assertEquals(1234.56, result.total!!, 0.001)
         assertEquals(234.56, result.tax!!, 0.001)
     }
+
+    @Test
+    fun parsesTaxLineWithRateAndAmountUsingLastAmount() {
+        val raw = """
+            PANADERIA EJEMPLO
+            IVA 21% 2,10
+            TOTAL 12,10
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals(12.10, result.total!!, 0.001)
+        assertEquals(2.10, result.tax!!, 0.001)
+    }
+
+    @Test
+    fun parsesDotDecimalAmounts() {
+        val raw = """
+            STORE EXAMPLE
+            VAT: 2.50
+            TOTAL: 12.50
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals(12.50, result.total!!, 0.001)
+        assertEquals(2.50, result.tax!!, 0.001)
+    }
 }
