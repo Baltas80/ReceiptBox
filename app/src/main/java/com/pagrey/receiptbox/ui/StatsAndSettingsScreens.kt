@@ -1,5 +1,8 @@
 package com.pagrey.receiptbox.ui
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -8,9 +11,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pagrey.receiptbox.data.Receipt
+import com.pagrey.receiptbox.util.ReceiptCsvExporter
 import com.pagrey.receiptbox.util.parseReceiptDate
 import java.text.NumberFormat
 import java.time.LocalDate
@@ -83,6 +88,7 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SummaryRow("Gasto acumulado", statsEuro.format(allReceiptsWithTotal.sumOf { it.total ?: 0.0 }))
                         SummaryRow("Tickets registrados", receipts.size.toString())
+                        SummaryRow("Tickets con importe", allReceiptsWithTotal.size.toString())
                         SummaryRow("Media por ticket", if (allReceiptsWithTotal.isEmpty()) "—" else statsEuro.format(allReceiptsWithTotal.sumOf { it.total ?: 0.0 } / allReceiptsWithTotal.size))
                         SummaryRow("Media este mes", if (monthReceiptsWithTotal.isEmpty()) "—" else statsEuro.format(monthTotal / monthReceiptsWithTotal.size))
                     }
@@ -99,7 +105,18 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(darkTheme: Boolean, onDarkThemeChanged: (Boolean) -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChanged: (Boolean) -> Unit, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val csvContent = remember(receipts) { ReceiptCsvExporter.export(receipts) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(csvContent.toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+    }
     Scaffold(topBar = {
         TopAppBar(title = { Text("Ajustes") }, navigationIcon = {
             IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Volver") }
@@ -126,7 +143,19 @@ fun SettingsScreen(darkTheme: Boolean, onDarkThemeChanged: (Boolean) -> Unit, on
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         SettingRow(Icons.Default.Category, "Categorías", "Alimentación, Hogar, Transporte y más")
                         SettingRow(Icons.Default.CloudOff, "Copia de seguridad", "Próximamente")
-                        SettingRow(Icons.Default.FileDownload, "Exportar datos", "PDF/CSV · Próximamente")
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.FileDownload, null, Modifier.size(24.dp))
+                            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                                Text("Exportar datos", fontWeight = FontWeight.SemiBold)
+                                Text("CSV · ${receipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(onClick = {
+                                exportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                    type = "text/csv"
+                                    putExtra(Intent.EXTRA_TITLE, "receiptbox_tickets.csv")
+                                })
+                            }) { Text("Exportar") }
+                        }
                     }
                 }
             }
