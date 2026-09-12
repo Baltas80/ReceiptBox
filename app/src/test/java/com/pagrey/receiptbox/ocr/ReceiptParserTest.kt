@@ -1,6 +1,7 @@
 package com.pagrey.receiptbox.ocr
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReceiptParserTest {
@@ -80,5 +81,31 @@ class ReceiptParserTest {
 
         assertEquals(12.50, result.total!!, 0.001)
         assertEquals(2.50, result.tax!!, 0.001)
+    }
+
+    @Test
+    fun doesNotTreatSubtotalAsTotal() {
+        val raw = """
+            SUPERMERCADO EJEMPLO
+            SUBTOTAL 10,00
+            DESCUENTO 1,00
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertNull(result.total)
+    }
+
+    @Test
+    fun acceptsTotalInsideLongerLabeledLine() {
+        val raw = """
+            TIENDA EJEMPLO
+            BASE IMPONIBLE 10,00
+            TOTAL A PAGAR 12,10
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals(12.10, result.total!!, 0.001)
     }
 }

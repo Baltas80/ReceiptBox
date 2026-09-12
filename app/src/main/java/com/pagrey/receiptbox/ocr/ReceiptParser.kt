@@ -50,7 +50,8 @@ object ReceiptParser {
 
     private fun findAmount(text: String, labels: List<String>): Double? {
         val labelPattern = labels.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
-        val labelLineRegex = Regex("(?im)^.*(?:$labelPattern).*$")
+        // Require label boundaries so SUBTOTAL does not count as TOTAL.
+        val labelLineRegex = Regex("(?im)^.*(?<![\\p{L}\\p{N}])(?:$labelPattern)(?![\\p{L}\\p{N}]).*$")
         val matches = labelLineRegex.findAll(text).toList()
 
         for (match in matches) {
