@@ -1,6 +1,7 @@
 package com.pagrey.receiptbox.data
 
 import android.content.Context
+import androidx.database.sqlite.SQLiteDatabase
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -14,12 +15,26 @@ abstract class ReceiptDatabase : RoomDatabase() {
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE receipts ADD COLUMN tax REAL")
-                database.execSQL("ALTER TABLE receipts ADD COLUMN category TEXT NOT NULL DEFAULT 'Otros'")
-                database.execSQL("ALTER TABLE receipts ADD COLUMN imagePath TEXT NOT NULL DEFAULT ''")
-                database.execSQL("ALTER TABLE receipts ADD COLUMN rawText TEXT NOT NULL DEFAULT ''")
-                database.execSQL("ALTER TABLE receipts ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
+                addColumnIfMissing(database, "tax", "REAL")
+                addColumnIfMissing(database, "category", "TEXT NOT NULL DEFAULT 'Otros'")
+                addColumnIfMissing(database, "imagePath", "TEXT NOT NULL DEFAULT ''")
+                addColumnIfMissing(database, "rawText", "TEXT NOT NULL DEFAULT ''")
+                addColumnIfMissing(database, "createdAt", "INTEGER NOT NULL DEFAULT 0")
             }
+        }
+
+        private fun addColumnIfMissing(
+            database: SupportSQLiteDatabase,
+            name: String,
+            definition: String
+        ) {
+            database.query("PRAGMA table_info(receipts)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nameIndex) == name) return
+                }
+            }
+            database.execSQL("ALTER TABLE receipts ADD COLUMN $name $definition")
         }
 
         @Volatile private var INSTANCE: ReceiptDatabase? = null
