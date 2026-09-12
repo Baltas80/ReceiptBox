@@ -24,8 +24,10 @@ private val statsCategories = listOf("Alimentación", "Hogar", "Transporte", "Sa
 fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
     val today = remember { LocalDate.now() }
     val monthReceipts = receipts.filter { parseReceiptDate(it.date)?.let { d -> d.year == today.year && d.monthValue == today.monthValue } == true }
-    val monthTotal = monthReceipts.sumOf { it.total ?: 0.0 }
-    val categoryTotals = monthReceipts.groupBy { if (it.category in statsCategories) it.category else "Otros" }
+    val monthReceiptsWithTotal = monthReceipts.filter { it.total != null }
+    val allReceiptsWithTotal = receipts.filter { it.total != null }
+    val monthTotal = monthReceiptsWithTotal.sumOf { it.total ?: 0.0 }
+    val categoryTotals = monthReceiptsWithTotal.groupBy { if (it.category in statsCategories) it.category else "Otros" }
         .mapValues { (_, items) -> items.sumOf { it.total ?: 0.0 } }
         .filterValues { it > 0.0 }
         .toList().sortedByDescending { it.second }
@@ -44,8 +46,14 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
                 Text("Este mes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer)) {
                     Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column { Text("Gasto total", style = MaterialTheme.typography.labelLarge); Text(statsEuro.format(monthTotal), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
-                        Column(horizontalAlignment = Alignment.End) { Text("Tickets", style = MaterialTheme.typography.labelLarge); Text(monthReceipts.size.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
+                        Column {
+                            Text("Gasto total", style = MaterialTheme.typography.labelLarge)
+                            Text(statsEuro.format(monthTotal), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Tickets", style = MaterialTheme.typography.labelLarge)
+                            Text(monthReceipts.size.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -73,9 +81,10 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
                 Text("Resumen", style = MaterialTheme.typography.titleLarge)
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SummaryRow("Gasto acumulado", statsEuro.format(receipts.sumOf { it.total ?: 0.0 }))
+                        SummaryRow("Gasto acumulado", statsEuro.format(allReceiptsWithTotal.sumOf { it.total ?: 0.0 }))
                         SummaryRow("Tickets registrados", receipts.size.toString())
-                        SummaryRow("Media por ticket", if (receipts.isEmpty()) "—" else statsEuro.format(receipts.sumOf { it.total ?: 0.0 } / receipts.size))
+                        SummaryRow("Media por ticket", if (allReceiptsWithTotal.isEmpty()) "—" else statsEuro.format(allReceiptsWithTotal.sumOf { it.total ?: 0.0 } / allReceiptsWithTotal.size))
+                        SummaryRow("Media este mes", if (monthReceiptsWithTotal.isEmpty()) "—" else statsEuro.format(monthTotal / monthReceiptsWithTotal.size))
                     }
                 }
             }
