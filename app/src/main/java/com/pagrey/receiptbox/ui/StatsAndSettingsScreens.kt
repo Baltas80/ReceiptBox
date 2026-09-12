@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pagrey.receiptbox.data.Receipt
+import com.pagrey.receiptbox.util.parseReceiptDate
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.util.Locale
@@ -22,7 +23,7 @@ private val statsCategories = listOf("Alimentación", "Hogar", "Transporte", "Sa
 @Composable
 fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
     val today = remember { LocalDate.now() }
-    val monthReceipts = receipts.filter { parseStatsDate(it.date)?.let { d -> d.year == today.year && d.monthValue == today.monthValue } == true }
+    val monthReceipts = receipts.filter { parseReceiptDate(it.date)?.let { d -> d.year == today.year && d.monthValue == today.monthValue } == true }
     val monthTotal = monthReceipts.sumOf { it.total ?: 0.0 }
     val categoryTotals = monthReceipts.groupBy { if (it.category in statsCategories) it.category else "Otros" }
         .mapValues { (_, items) -> items.sumOf { it.total ?: 0.0 } }
@@ -140,12 +141,4 @@ fun SettingsScreen(darkTheme: Boolean, onDarkThemeChanged: (Boolean) -> Unit, on
         Icon(icon, null, Modifier.size(24.dp))
         Column(Modifier.padding(start = 14.dp)) { Text(title, fontWeight = FontWeight.SemiBold); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
-}
-
-private fun parseStatsDate(value: String): LocalDate? {
-    val patterns = listOf("dd/MM/yyyy", "dd-MM-yyyy", "yyyy-MM-dd", "yyyy/MM/dd")
-    for (pattern in patterns) {
-        try { return LocalDate.parse(value.trim(), java.time.format.DateTimeFormatter.ofPattern(pattern)) } catch (_: Exception) { }
-    }
-    return null
 }
