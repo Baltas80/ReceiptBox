@@ -38,9 +38,7 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
         val route = currentBackStackEntry?.destination?.route ?: "home"
         val showBottomBar = route == "home" || route == "tickets" || route == "stats" || route == "settings"
 
-        Scaffold(bottomBar = {
-            if (showBottomBar) BottomNav(route, navigate)
-        }) { paddingValues ->
+        Scaffold(bottomBar = { if (showBottomBar) BottomNav(route, navigate) }) { paddingValues ->
             Box(Modifier.padding(paddingValues)) {
                 NavHost(navController, startDestination = "home") {
                     composable("home") { HomeScreen(receipts, { navigate("add") }, { id -> navigate("detail/$id") }, { navigate("tickets") }) }
@@ -51,7 +49,7 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
                         SettingsScreen(receipts, darkTheme, {
                             darkTheme = it
                             preferences.edit().putBoolean("dark_theme", it).apply()
-                        }) { goHome() }
+                        }, { restored -> viewModel.restore(restored) }) { goHome() }
                     }
                     composable("detail/{id}") { entry ->
                         val id = entry.arguments?.getString("id")?.toLongOrNull()
