@@ -97,6 +97,19 @@ class ReceiptParserTest {
     }
 
     @Test
+    fun doesNotTreatSplitSubtotalAsTotal() {
+        val raw = """
+            SUPERMERCADO EJEMPLO
+            SUB TOTAL 10,00
+            TOTAL 12,00
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals(12.00, result.total!!, 0.001)
+    }
+
+    @Test
     fun acceptsTotalInsideLongerLabeledLine() {
         val raw = """
             TIENDA EJEMPLO
@@ -119,6 +132,18 @@ class ReceiptParserTest {
         val result = ReceiptParser.parse(raw)
 
         assertEquals(123.96, result.total!!, 0.001)
+    }
+
+    @Test
+    fun rejectsImplausiblyLargeAmount() {
+        val raw = """
+            TIENDA EJEMPLO
+            TOTAL: 9999999,99
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertNull(result.total)
     }
 
     @Test
