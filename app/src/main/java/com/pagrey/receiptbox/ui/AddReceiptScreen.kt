@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +65,8 @@ import com.pagrey.receiptbox.ocr.OcrResult
 import com.pagrey.receiptbox.ocr.ReceiptOcrProcessor
 import com.pagrey.receiptbox.util.parseReceiptAmount
 import java.io.File
+
+private val receiptCategories = listOf("Alimentación", "Hogar", "Transporte", "Salud", "Tecnología", "Ocio", "Ropa", "Otros")
 
 @Composable
 fun AddReceiptScreen(viewModel: ReceiptBoxViewModel, onSaved: (Long) -> Unit, onCancel: () -> Unit) {
@@ -112,6 +116,8 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
     var total by remember(parsed) { mutableStateOf(parsed?.total?.toString().orEmpty()) }
     var tax by remember(parsed) { mutableStateOf(parsed?.tax?.toString().orEmpty()) }
     var number by remember(parsed) { mutableStateOf(parsed?.receiptNumber.orEmpty()) }
+    var category by remember(parsed) { mutableStateOf("Otros") }
+    var categoryExpanded by remember { mutableStateOf(false) }
     val totalValue = parseReceiptAmount(total)
     val merchantInvalid = merchant.isBlank() || merchant.trim().length < 2
     val totalInvalid = totalValue == null || totalValue <= 0.0
@@ -159,6 +165,15 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
         if (totalInvalid) Text("Introduce un total válido mayor que 0 €.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(tax, { tax = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("IVA") }, singleLine = true)
         OutlinedTextField(number, { number = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("N.º de ticket") }, singleLine = true)
+        Spacer(Modifier.height(8.dp))
+        Box {
+            Button(onClick = { categoryExpanded = true }, modifier = Modifier.fillMaxWidth()) { Text("Categoría: $category") }
+            DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
+                receiptCategories.forEach { item ->
+                    DropdownMenuItem(text = { Text(item) }, onClick = { category = item; categoryExpanded = false })
+                }
+            }
+        }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancelar") }
@@ -172,6 +187,7 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
                             total = parsedTotal,
                             tax = parseReceiptAmount(tax),
                             receiptNumber = number.trim(),
+                            category = category,
                             imagePath = file.absolutePath,
                             rawText = ocr?.rawText.orEmpty()
                         ))
