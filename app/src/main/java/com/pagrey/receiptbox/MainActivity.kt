@@ -51,7 +51,7 @@ private fun ReceiptBoxApp(viewModel: ReceiptBoxViewModel = viewModel()) {
                         SettingsScreen(receipts, darkTheme, {
                             darkTheme = it
                             preferences.edit().putBoolean("dark_theme", it).apply()
-                        }, { restored -> viewModel.restore(restored) }) { goHome() }
+                        }, { restored -> viewModel.restore(restored) }, { restored -> viewModel.restoreFull(restored) }) { goHome() }
                     }
                     composable("detail/{id}") { entry ->
                         val id = entry.arguments?.getString("id")?.toLongOrNull()
