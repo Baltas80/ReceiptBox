@@ -125,6 +125,21 @@ class ReceiptFullBackupTest {
             .onFailure { assertEquals("Una entrada de la copia supera el tamaño máximo permitido", it.message) }
     }
 
+    @Test
+    fun rejectsOversizedExpandedBackup() {
+        val image = ByteArray(9 * 1024 * 1024) { 0 }
+        val zip = zipOf(
+            "backup.json" to "{\"version\":1,\"receipts\":[]}".toByteArray(),
+            "images/0.jpg" to image,
+            "images/1.jpg" to image,
+            "images/2.jpg" to image,
+            "images/3.jpg" to image
+        )
+        runCatching { ReceiptFullBackup.import(zip, Files.createTempDirectory("receiptbox-full-backup-total-limit").toFile()) }
+            .onSuccess { error("Expanded ZIP should be rejected") }
+            .onFailure { assertEquals("La copia descomprimida supera el tamaño máximo permitido", it.message) }
+    }
+
     private fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray = ByteArrayOutputStream().use { output ->
         ZipOutputStream(output).use { zip ->
             entries.forEach { (name, bytes) ->
