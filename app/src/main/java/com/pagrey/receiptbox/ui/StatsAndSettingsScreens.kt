@@ -87,9 +87,12 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
     val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch(Dispatchers.IO) {
-            runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("No se pudo leer la copia") }.onSuccess { bytes ->
-                runCatching { ReceiptFullBackup.import(bytes, File(context.filesDir, "receipts")) }.onSuccess { restored -> scope.launch(Dispatchers.Main) { pendingFullRestore = restored } }.onFailure { error -> scope.launch(Dispatchers.Main) { Toast.makeText(context, "Copia no válida: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() } }
-            }.onFailure { error -> scope.launch(Dispatchers.Main) { Toast.makeText(context, "No se pudo leer la copia: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() } }
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    ReceiptFullBackup.import(input, File(context.filesDir, "receipts"))
+                } ?: error("No se pudo leer la copia")
+            }.onSuccess { restored -> scope.launch(Dispatchers.Main) { pendingFullRestore = restored } }
+                .onFailure { error -> scope.launch(Dispatchers.Main) { Toast.makeText(context, "Copia no válida: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() } }
         }
     }
     pendingRestore?.let { restored -> AlertDialog(onDismissRequest = { pendingRestore = null }, title = { Text("Restaurar copia", fontWeight = FontWeight.Bold) }, text = { Text("Se añadirán ${restored.size} tickets a los existentes. Las imágenes no se incluyen en esta copia. ¿Continuar?") }, confirmButton = { TextButton(onClick = { onRestore(restored); pendingRestore = null; Toast.makeText(context, "Restaurados ${restored.size} tickets", Toast.LENGTH_SHORT).show() }) { Text("Restaurar") } }, dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text("Cancelar") } }) }
