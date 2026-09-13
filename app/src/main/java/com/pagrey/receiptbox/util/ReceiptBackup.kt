@@ -4,6 +4,7 @@ import com.pagrey.receiptbox.data.Receipt
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** Portable data-only backup format. Image files remain device-local and are not embedded. */
 object ReceiptBackup {
     private const val VERSION = 1
 
