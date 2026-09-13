@@ -19,8 +19,13 @@ import androidx.compose.ui.unit.dp
 import com.pagrey.receiptbox.data.Receipt
 import com.pagrey.receiptbox.util.ReceiptBackup
 import com.pagrey.receiptbox.util.ReceiptCsvExporter
+import com.pagrey.receiptbox.util.ReceiptFullBackup
 import com.pagrey.receiptbox.util.ReceiptPdfExporter
 import com.pagrey.receiptbox.util.parseReceiptDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.util.Locale
@@ -110,21 +115,32 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChanged: (Boolean) -> Unit, onRestore: (List<Receipt>) -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(
+    receipts: List<Receipt>,
+    darkTheme: Boolean,
+    onDarkThemeChanged: (Boolean) -> Unit,
+    onRestore: (List<Receipt>) -> Unit,
+    onRestoreFull: (List<Receipt>) -> Unit,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val csvContent = remember(receipts) { ReceiptCsvExporter.export(receipts) }
     val backupContent = remember(receipts) { ReceiptBackup.export(receipts) }
     var pendingRestore by remember { mutableStateOf<List<Receipt>?>(null) }
+    var pendingFullRestore by remember { mutableStateOf<ReceiptFullBackup.RestoreResult?>(null) }
+    val fullBackupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
+            Toast.makeText(context, "Preparando copia completa…", Toast.LENGTH_SHORT).show()
+        }
+    }
     val csvExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
             runCatching {
                 context.contentResolver.openOutputStream(uri)?.use { it.write(csvContent.toByteArray(Charsets.UTF_8)) }
                     ?: error("No se pudo abrir el archivo de destino")
-            }.onSuccess {
-                Toast.makeText(context, "CSV exportado", Toast.LENGTH_SHORT).show()
-            }.onFailure {
-                Toast.makeText(context, "No se pudo exportar el CSV", Toast.LENGTH_LONG).show()
-            }
+            }.onSuccess { Toast.makeText(context, "CSV exportado", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(context, "No se pudo exportar el CSV", Toast.LENGTH_LONG).show() }
         }
     }
     val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -132,11 +148,8 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
             runCatching {
                 context.contentResolver.openOutputStream(uri)?.use { it.write(backupContent.toByteArray(Charsets.UTF_8)) }
                     ?: error("No se pudo abrir el archivo de destino")
-            }.onSuccess {
-                Toast.makeText(context, "Copia creada", Toast.LENGTH_SHORT).show()
-            }.onFailure {
-                Toast.makeText(context, "No se pudo crear la copia", Toast.LENGTH_LONG).show()
-            }
+            }.onSuccess { Toast.makeText(context, "Copia creada", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(context, "No se pudo crear la copia", Toast.LENGTH_LONG).show() }
         }
     }
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -144,11 +157,8 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
             runCatching {
                 context.contentResolver.openOutputStream(uri)?.use { it.write(ReceiptPdfExporter.export(receipts)) }
                     ?: error("No se pudo abrir el archivo de destino")
-            }.onSuccess {
-                Toast.makeText(context, "PDF exportado", Toast.LENGTH_SHORT).show()
-            }.onFailure {
-                Toast.makeText(context, "No se pudo exportar el PDF", Toast.LENGTH_LONG).show()
-            }
+            }.onSuccess { Toast.makeText(context, "PDF exportado", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(context, "No se pudo exportar el PDF", Toast.LENGTH_LONG).show() }
         }
     }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -156,10 +166,25 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
         runCatching {
             context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { ReceiptBackup.import(it.readText()) }
                 ?: error("No se pudo leer la copia")
-        }.onSuccess { restored ->
-            pendingRestore = restored
-        }.onFailure {
-            Toast.makeText(context, "Copia no válida: ${it.message ?: "error desconocido"}", Toast.LENGTH_LONG).show()
+        }.onSuccess { restored -> pendingRestore = restored }
+            .onFailure { Toast.makeText(context, "Copia no válida: ${it.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() }
+    }
+    val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("No se pudo leer la copia")
+            }.onSuccess { bytes ->
+                runCatching {
+                    ReceiptFullBackup.import(bytes, File(context.cacheDir, "receiptbox_full_restore_${System.currentTimeMillis()}"))
+                }.onSuccess { restored ->
+                    scope.launch(Dispatchers.Main) { pendingFullRestore = restored }
+                }.onFailure { error ->
+                    scope.launch(Dispatchers.Main) { Toast.makeText(context, "Copia no válida: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() }
+                }
+            }.onFailure { error ->
+                scope.launch(Dispatchers.Main) { Toast.makeText(context, "No se pudo leer la copia: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() }
+            }
         }
     }
 
@@ -167,9 +192,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
         AlertDialog(
             onDismissRequest = { pendingRestore = null },
             title = { Text("Restaurar copia", fontWeight = FontWeight.Bold) },
-            text = {
-                Text("Se añadirán ${restored.size} tickets a los existentes. Las imágenes no se incluyen en esta copia. ¿Continuar?")
-            },
+            text = { Text("Se añadirán ${restored.size} tickets a los existentes. Las imágenes no se incluyen en esta copia. ¿Continuar?") },
             confirmButton = {
                 TextButton(onClick = {
                     onRestore(restored)
@@ -177,9 +200,25 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
                     Toast.makeText(context, "Restaurados ${restored.size} tickets", Toast.LENGTH_SHORT).show()
                 }) { Text("Restaurar") }
             },
-            dismissButton = {
-                TextButton(onClick = { pendingRestore = null }) { Text("Cancelar") }
-            }
+            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text("Cancelar") } }
+        )
+    }
+
+    pendingFullRestore?.let { restored ->
+        AlertDialog(
+            onDismissRequest = { pendingFullRestore = null },
+            title = { Text("Restaurar copia completa", fontWeight = FontWeight.Bold) },
+            text = { Text("Se añadirán ${restored.receipts.size} tickets y ${restored.restoredImages} imágenes a los existentes. ¿Continuar?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRestoreFull(restored.receipts)
+                    pendingFullRestore = null
+                    val missing = restored.missingImages
+                    val message = if (missing == 0) "Restaurados ${restored.receipts.size} tickets con sus imágenes" else "Restaurados ${restored.receipts.size} tickets; $missing imágenes no estaban disponibles"
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }) { Text("Restaurar") }
+            },
+            dismissButton = { TextButton(onClick = { pendingFullRestore = null }) { Text("Cancelar") } }
         )
     }
 
@@ -221,9 +260,34 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
                             Column(Modifier.weight(1f).padding(start = 14.dp)) {
                                 Text("Copia de seguridad", fontWeight = FontWeight.SemiBold)
                                 Text("JSON · ${receipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Los archivos de imagen no se incluyen", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Solo datos · sin imágenes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Row { TextButton(onClick = { backupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/json"; putExtra(Intent.EXTRA_TITLE, "receiptbox_backup.json") }) }) { Text("Crear") }; TextButton(onClick = { restoreLauncher.launch(arrayOf("application/json", "text/plain")) }) { Text("Restaurar") } }
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.FolderZip, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                                Text("Copia completa", fontWeight = FontWeight.SemiBold)
+                                Text("ZIP · tickets + imágenes", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Incluye las imágenes disponibles", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                TextButton(onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        runCatching {
+                                            ReceiptFullBackup.export(receipts) { path -> File(path).takeIf { it.isFile }?.readBytes() }
+                                        }.onSuccess { bytes ->
+                                            scope.launch(Dispatchers.Main) {
+                                                fullBackupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/zip"; putExtra(Intent.EXTRA_TITLE, "receiptbox_backup_full.zip") })
+                                                context.getSharedPreferences("receiptbox_settings", android.content.Context.MODE_PRIVATE).edit().putString("pending_full_backup", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)).apply()
+                                            }
+                                        }.onFailure { error ->
+                                            scope.launch(Dispatchers.Main) { Toast.makeText(context, "No se pudo crear la copia: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() }
+                                        }
+                                    }
+                                }) { Text("Crear") }
+                                TextButton(onClick = { fullRestoreLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }) { Text("Restaurar") }
+                            }
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.PictureAsPdf, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
