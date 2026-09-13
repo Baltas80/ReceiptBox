@@ -62,6 +62,22 @@ class ReceiptFullBackupTest {
     }
 
     @Test
+    fun reportsMissingImageEntry() {
+        val temp = Files.createTempDirectory("receiptbox-full-backup-missing-entry").toFile()
+        try {
+            val zip = zipOf(
+                "backup.json" to """{"version":1,"receipts":[{"merchant":"Test","imageEntry":"images/0.jpg"}]}""".toByteArray()
+            )
+            val result = ReceiptFullBackup.import(zip, temp)
+            assertEquals(0, result.restoredImages)
+            assertEquals(1, result.missingImages)
+            assertTrue(result.receipts.single().imagePath.isEmpty())
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
     fun cleanupImagesRemovesOnlyRestoredFiles() {
         val temp = Files.createTempDirectory("receiptbox-full-backup-cleanup").toFile()
         try {
