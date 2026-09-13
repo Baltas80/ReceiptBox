@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.pagrey.receiptbox"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.pagrey.receiptbox"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 2
         versionName = "0.2.0"
     }
