@@ -120,7 +120,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
                 .onFailure { Toast.makeText(context, "No se pudo exportar el CSV", Toast.LENGTH_LONG).show() }
         }
     }
-    val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForActivityResult()) { result ->
+    val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
             runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(backupContent.toByteArray(Charsets.UTF_8)) } }
                 .onFailure { Toast.makeText(context, "No se pudo crear la copia", Toast.LENGTH_LONG).show() }
