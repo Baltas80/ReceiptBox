@@ -116,21 +116,38 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
     val backupContent = remember(receipts) { ReceiptBackup.export(receipts) }
     val csvExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
-            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(csvContent.toByteArray(Charsets.UTF_8)) } }
-                .onFailure { Toast.makeText(context, "No se pudo exportar el CSV", Toast.LENGTH_LONG).show() }
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(csvContent.toByteArray(Charsets.UTF_8)) }
+                    ?: error("No se pudo abrir el archivo de destino")
+            }.onSuccess {
+                Toast.makeText(context, "CSV exportado", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(context, "No se pudo exportar el CSV", Toast.LENGTH_LONG).show()
+            }
         }
     }
     val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
-            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(backupContent.toByteArray(Charsets.UTF_8)) } }
-                .onFailure { Toast.makeText(context, "No se pudo crear la copia", Toast.LENGTH_LONG).show() }
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(backupContent.toByteArray(Charsets.UTF_8)) }
+                    ?: error("No se pudo abrir el archivo de destino")
+            }.onSuccess {
+                Toast.makeText(context, "Copia creada", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(context, "No se pudo crear la copia", Toast.LENGTH_LONG).show()
+            }
         }
     }
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
-            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(ReceiptPdfExporter.export(receipts)) } }
-                .onSuccess { Toast.makeText(context, "PDF exportado", Toast.LENGTH_SHORT).show() }
-                .onFailure { Toast.makeText(context, "No se pudo exportar el PDF", Toast.LENGTH_LONG).show() }
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(ReceiptPdfExporter.export(receipts)) }
+                    ?: error("No se pudo abrir el archivo de destino")
+            }.onSuccess {
+                Toast.makeText(context, "PDF exportado", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(context, "No se pudo exportar el PDF", Toast.LENGTH_LONG).show()
+            }
         }
     }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
