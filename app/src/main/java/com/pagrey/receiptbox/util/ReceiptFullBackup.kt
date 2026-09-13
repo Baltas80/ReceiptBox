@@ -104,7 +104,8 @@ object ReceiptFullBackup {
                         rawText = item.optString("rawText"),
                         createdAt = item.optLong("createdAt", System.currentTimeMillis())
                     ),
-                    imageBytes = imageEntry.takeIf { it.isNotBlank() }?.let { entries[it] }
+                    imageBytes = imageEntry.takeIf { it.isNotBlank() }?.let { entries[it] },
+                    hasImageReference = imageEntry.isNotBlank()
                 ))
             }
         }
@@ -113,7 +114,7 @@ object ReceiptFullBackup {
         val restored = mutableListOf<Receipt>()
         var restoredImages = 0
         try {
-            parsed.forEachIndexed { index, item ->
+            parsed.forEach { item ->
                 val imagePath = item.imageBytes?.let { bytes ->
                     val target = File(imageDirectory, "restored_${UUID.randomUUID()}.jpg")
                     FileOutputStream(target).use { it.write(bytes) }
@@ -127,11 +128,15 @@ object ReceiptFullBackup {
             createdPaths.forEach { File(it).delete() }
             throw error
         }
-        val expectedImages = parsed.count { it.imageBytes != null }
+        val expectedImages = parsed.count { it.hasImageReference }
         return RestoreResult(restored, restoredImages, (expectedImages - restoredImages).coerceAtLeast(0), createdPaths.toList())
     }
 
-    private data class ParsedReceipt(val receipt: Receipt, val imageBytes: ByteArray?)
+    private data class ParsedReceipt(
+        val receipt: Receipt,
+        val imageBytes: ByteArray?,
+        val hasImageReference: Boolean
+    )
 
     private fun isSafeEntry(name: String): Boolean = name == METADATA_ENTRY || (name.startsWith(IMAGE_PREFIX) && isSafeImageEntry(name))
 
