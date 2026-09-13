@@ -21,8 +21,13 @@ object ReceiptFullBackup {
     data class RestoreResult(
         val receipts: List<Receipt>,
         val restoredImages: Int,
-        val missingImages: Int
-    )
+        val missingImages: Int,
+        val stagingDirectory: File
+    ) {
+        fun cleanupStaging() {
+            stagingDirectory.deleteRecursively()
+        }
+    }
 
     fun export(receipts: List<Receipt>, imageLoader: (String) -> ByteArray?): ByteArray {
         val metadata = JSONArray()
@@ -62,7 +67,8 @@ object ReceiptFullBackup {
         }
     }
 
-    fun import(zipBytes: ByteArray, imageDirectory: File): RestoreResult {
+    /** Reads and stages a backup. No files are written to the live receipt directory. */
+    fun import(zipBytes: ByteArray, stagingDirectory: File): RestoreResult {
         require(zipBytes.isNotEmpty()) { "La copia está vacía" }
         val entries = linkedMapOf<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
@@ -78,35 +84,73 @@ object ReceiptFullBackup {
         val root = JSONObject(String(metadataBytes, Charsets.UTF_8))
         require(root.optInt("version", -1) == VERSION) { "Versión de copia no compatible" }
         val items = root.optJSONArray("receipts") ?: JSONArray()
-        imageDirectory.mkdirs()
-        val restored = buildList(items.length()) {
+        val parsed = buildList(items.length()) {
             for (i in 0 until items.length()) {
                 val item = items.optJSONObject(i) ?: continue
                 val imageEntry = item.optString("imageEntry")
                 if (imageEntry.isNotBlank()) require(isSafeImageEntry(imageEntry)) { "Referencia de imagen no válida" }
                 val imageBytes = imageEntry.takeIf { it.isNotBlank() }?.let { entries[it] }
-                val imagePath = if (imageBytes != null) {
-                    val target = File(imageDirectory, "restored_${UUID.randomUUID()}.jpg")
-                    FileOutputStream(target).use { it.write(imageBytes) }
-                    target.absolutePath
-                } else ""
-                add(Receipt(
-                    merchant = item.optString("merchant"),
-                    date = item.optString("date"),
-                    total = item.optNullableDouble("total"),
-                    tax = item.optNullableDouble("tax"),
-                    receiptNumber = item.optString("receiptNumber"),
-                    category = item.optString("category", "Otros"),
-                    imagePath = imagePath,
-                    rawText = item.optString("rawText"),
-                    createdAt = item.optLong("createdAt", System.currentTimeMillis())
+                add(ParsedReceipt(
+                    receipt = Receipt(
+                        merchant = item.optString("merchant"),
+                        date = item.optString("date"),
+                        total = item.optNullableDouble("total"),
+                        tax = item.optNullableDouble("tax"),
+                        receiptNumber = item.optString("receiptNumber"),
+                        category = item.optString("category", "Otros"),
+                        imagePath = "",
+                        rawText = item.optString("rawText"),
+                        createdAt = item.optLong("createdAt", System.currentTimeMillis())
+                    ),
+                    imageBytes = imageBytes
                 ))
             }
         }
-        val expectedImages = (0 until items.length()).count { items.optJSONObject(it)?.optString("imageEntry").orEmpty().isNotBlank() }
-        val restoredImages = restored.count { it.imagePath.isNotBlank() }
-        return RestoreResult(restored, restoredImages, (expectedImages - restoredImages).coerceAtLeast(0))
+
+        stagingDirectory.deleteRecursively()
+        stagingDirectory.mkdirs()
+        val restored = mutableListOf<Receipt>()
+        var restoredImages = 0
+        try {
+            parsed.forEachIndexed { index, item ->
+                val imagePath = item.imageBytes?.let { bytes ->
+                    val target = File(stagingDirectory, "restored_$index.jpg")
+                    FileOutputStream(target).use { it.write(bytes) }
+                    restoredImages++
+                    target.absolutePath
+                }.orEmpty()
+                restored += item.receipt.copy(imagePath = imagePath)
+            }
+        } catch (error: Throwable) {
+            stagingDirectory.deleteRecursively()
+            throw error
+        }
+        val expectedImages = parsed.count { it.receipt.imagePath.isNotBlank() || it.imageBytes != null }
+        return RestoreResult(restored, restoredImages, (expectedImages - restoredImages).coerceAtLeast(0), stagingDirectory)
     }
+
+    /** Moves staged images into the app-private receipt directory and returns final receipt paths. */
+    fun commitRestore(result: RestoreResult, imageDirectory: File): List<Receipt> {
+        imageDirectory.mkdirs()
+        return try {
+            result.receipts.map { receipt ->
+                if (receipt.imagePath.isBlank()) receipt else {
+                    val source = File(receipt.imagePath)
+                    require(source.parentFile?.canonicalFile == result.stagingDirectory.canonicalFile) { "Archivo de imagen no válido" }
+                    val target = File(imageDirectory, "restored_${UUID.randomUUID()}.jpg")
+                    require(source.renameTo(target)) { "No se pudo guardar la imagen restaurada" }
+                    receipt.copy(imagePath = target.absolutePath)
+                }
+            }
+        } catch (error: Throwable) {
+            result.cleanupStaging()
+            throw error
+        } finally {
+            result.stagingDirectory.deleteRecursively()
+        }
+    }
+
+    private data class ParsedReceipt(val receipt: Receipt, val imageBytes: ByteArray?)
 
     private fun isSafeEntry(name: String): Boolean = name == METADATA_ENTRY || (name.startsWith(IMAGE_PREFIX) && isSafeImageEntry(name))
 
