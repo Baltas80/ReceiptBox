@@ -129,9 +129,24 @@ fun SettingsScreen(
     val backupContent = remember(receipts) { ReceiptBackup.export(receipts) }
     var pendingRestore by remember { mutableStateOf<List<Receipt>?>(null) }
     var pendingFullRestore by remember { mutableStateOf<ReceiptFullBackup.RestoreResult?>(null) }
+    var pendingFullBackupBytes by remember { mutableStateOf<ByteArray?>(null) }
+
     val fullBackupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
-            Toast.makeText(context, "Preparando copia completa…", Toast.LENGTH_SHORT).show()
+            val bytes = pendingFullBackupBytes
+            if (bytes == null) {
+                Toast.makeText(context, "No hay una copia preparada", Toast.LENGTH_LONG).show()
+            } else {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                        ?: error("No se pudo abrir el archivo de destino")
+                }.onSuccess {
+                    pendingFullBackupBytes = null
+                    Toast.makeText(context, "Copia completa creada", Toast.LENGTH_SHORT).show()
+                }.onFailure {
+                    Toast.makeText(context, "No se pudo crear la copia completa", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
     val csvExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -176,7 +191,7 @@ fun SettingsScreen(
                 context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("No se pudo leer la copia")
             }.onSuccess { bytes ->
                 runCatching {
-                    ReceiptFullBackup.import(bytes, File(context.cacheDir, "receiptbox_full_restore_${System.currentTimeMillis()}"))
+                    ReceiptFullBackup.import(bytes, File(context.filesDir, "receipts"))
                 }.onSuccess { restored ->
                     scope.launch(Dispatchers.Main) { pendingFullRestore = restored }
                 }.onFailure { error ->
@@ -277,12 +292,12 @@ fun SettingsScreen(
                                         runCatching {
                                             ReceiptFullBackup.export(receipts) { path -> File(path).takeIf { it.isFile }?.readBytes() }
                                         }.onSuccess { bytes ->
-                                            scope.launch(Dispatchers.Main) {
+                                            withContext(Dispatchers.Main) {
+                                                pendingFullBackupBytes = bytes
                                                 fullBackupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/zip"; putExtra(Intent.EXTRA_TITLE, "receiptbox_backup_full.zip") })
-                                                context.getSharedPreferences("receiptbox_settings", android.content.Context.MODE_PRIVATE).edit().putString("pending_full_backup", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)).apply()
                                             }
                                         }.onFailure { error ->
-                                            scope.launch(Dispatchers.Main) { Toast.makeText(context, "No se pudo crear la copia: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() }
+                                            withContext(Dispatchers.Main) { Toast.makeText(context, "No se pudo crear la copia: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() }
                                         }
                                     }
                                 }) { Text("Crear") }
