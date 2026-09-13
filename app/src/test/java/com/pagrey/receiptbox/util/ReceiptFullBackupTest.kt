@@ -140,6 +140,32 @@ class ReceiptFullBackupTest {
             .onFailure { assertEquals("La copia descomprimida supera el tamaño máximo permitido", it.message) }
     }
 
+    @Test
+    fun rejectsOversizedExportImage() {
+        val oversized = ByteArray(10 * 1024 * 1024 + 1)
+        runCatching {
+            ReceiptFullBackup.export(listOf(Receipt(imagePath = "/large.jpg"))) { oversized }
+        }
+            .onSuccess { error("Oversized export image should be rejected") }
+            .onFailure { assertEquals("Una imagen de la copia supera el tamaño máximo permitido", it.message) }
+    }
+
+    @Test
+    fun rejectsOversizedExportImageSet() {
+        val image = ByteArray(9 * 1024 * 1024)
+        val receipts = listOf(
+            Receipt(imagePath = "/0.jpg"),
+            Receipt(imagePath = "/1.jpg"),
+            Receipt(imagePath = "/2.jpg"),
+            Receipt(imagePath = "/3.jpg")
+        )
+        runCatching {
+            ReceiptFullBackup.export(receipts) { image }
+        }
+            .onSuccess { error("Oversized export image set should be rejected") }
+            .onFailure { assertEquals("Las imágenes de la copia superan el tamaño máximo permitido", it.message) }
+    }
+
     private fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray = ByteArrayOutputStream().use { output ->
         ZipOutputStream(output).use { zip ->
             entries.forEach { (name, bytes) ->
