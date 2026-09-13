@@ -1,6 +1,7 @@
 package com.pagrey.receiptbox.util
 
 import com.pagrey.receiptbox.data.Receipt
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -41,5 +42,14 @@ class ReceiptBackupTest {
         assertNull(restored.total)
         assertNull(restored.tax)
         assertTrue(restored.merchant.isEmpty())
+    }
+
+    @Test
+    fun rejectsUnsupportedBackupVersion() {
+        val incompatible = JSONObject().put("version", 999).put("receipts", emptyList<Any>()).toString()
+
+        runCatching { ReceiptBackup.import(incompatible) }
+            .onSuccess { error("Incompatible backup should be rejected") }
+            .onFailure { assertEquals("Versión de copia no compatible", it.message) }
     }
 }
