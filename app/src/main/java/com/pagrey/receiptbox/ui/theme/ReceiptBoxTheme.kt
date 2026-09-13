@@ -8,27 +8,29 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import com.pagrey.receiptbox.ui.ReceiptBoxDesign
 
-private val Ink = Color(0xFF17151F)
-private val Muted = Color(0xFF6F6A78)
-private val Brand = Color(0xFF5B4BDB)
-private val BrandDark = Color(0xFFB2A6FF)
-private val Teal = Color(0xFF0E9F92)
-private val WarmBackground = Color(0xFFF4F1FA)
-private val Surface = Color(0xFFFFFFFF)
-private val SurfaceSoft = Color(0xFFEDE8F4)
-private val Border = Color(0xFFDCD5E7)
+private val Ink = Color(0xFF151321)
+private val Muted = Color(0xFF625D70)
+private val Brand = Color(0xFF5B45E6)
+private val BrandDark = Color(0xFFB8ADFF)
+private val Teal = Color(0xFF12A79A)
+private val WarmBackground = Color(0xFFEDE9F6)
+private val Surface = Color(0xFFF9F7FD)
+private val SurfaceSoft = Color(0xFFE3DDED)
+private val Border = Color(0xFFD2C9E0)
 
 private val LightColors = lightColorScheme(
     primary = Brand,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE1DBFF),
-    onPrimaryContainer = Color(0xFF211650),
+    primaryContainer = Color(0xFFDCD4FF),
+    onPrimaryContainer = Color(0xFF20134F),
     secondary = Teal,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFD2F2ED),
+    secondaryContainer = Color(0xFFCDEFE9),
     onSecondaryContainer = Color(0xFF063C36),
     tertiary = Color(0xFFB77900),
     onTertiary = Color.White,
@@ -39,7 +41,7 @@ private val LightColors = lightColorScheme(
     surfaceVariant = SurfaceSoft,
     onSurfaceVariant = Muted,
     outline = Border,
-    outlineVariant = Color(0xFFE4DEEB)
+    outlineVariant = Color(0xFFDAD2E5)
 )
 
 private val DarkColors = darkColorScheme(
@@ -49,11 +51,11 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = Color(0xFFEAE5FF),
     secondary = Color(0xFF72D9CF),
     onSecondary = Color(0xFF003731),
-    background = Color(0xFF100E17),
-    onBackground = Color(0xFFF4F0FA),
-    surface = Color(0xFF191622),
-    onSurface = Color(0xFFF4F0FA),
-    surfaceVariant = Color(0xFF292436),
+    background = Color(0xFF0D0B14),
+    onBackground = Color(0xFFF7F3FC),
+    surface = Color(0xFF17141F),
+    onSurface = Color(0xFFF7F3FC),
+    surfaceVariant = Color(0xFF272230),
     onSurfaceVariant = Color(0xFFC9C1D2),
     outline = Color(0xFF4A4254),
     outlineVariant = Color(0xFF393143)
@@ -69,11 +71,27 @@ private val ReceiptShapes = Shapes(
 
 private val ReceiptTypography = Typography().run {
     copy(
-        displaySmall = displaySmall.copy(fontWeight = FontWeight.Bold),
-        headlineMedium = headlineMedium.copy(fontWeight = FontWeight.Bold),
-        titleLarge = titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold),
-        labelLarge = labelLarge.copy(fontWeight = FontWeight.SemiBold)
+        displaySmall = displaySmall.copy(
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = (-0.7).sp,
+            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+        ),
+        headlineSmall = headlineSmall.copy(
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.35).sp
+        ),
+        headlineMedium = headlineMedium.copy(
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.45).sp
+        ),
+        titleLarge = titleLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, letterSpacing = (-0.15).sp),
+        titleMedium = titleMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.05).sp),
+        labelLarge = labelLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold),
+        bodyLarge = bodyLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)),
+        bodyMedium = bodyMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None))
     )
 }
 
