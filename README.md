@@ -17,7 +17,8 @@ ReceiptBox is a privacy-first Android app for capturing, extracting and organizi
 - View receipt details and delete or edit entries
 - Statistics by month and category
 - Dark mode
-- JSON backup and restore
+- JSON backup and restore (receipt data only)
+- Full ZIP backup and restore (receipt data plus available receipt images)
 - CSV export
 - PDF export
 - Premium Material 3 interface with shared design tokens
@@ -25,7 +26,9 @@ ReceiptBox is a privacy-first Android app for capturing, extracting and organizi
 ## Privacy
 Receipt data is stored locally on the device. ReceiptBox does not require an account for its core workflow.
 
-Backups currently preserve receipt data and the stored image paths. Images themselves are kept in the app's local storage, so a JSON backup restored on another device may require the original images to be re-imported.
+JSON backups preserve receipt data and stored image paths, but do not embed image files. A JSON backup restored on another device may therefore require the original images to be re-imported.
+
+Full ZIP backups are designed for device migration: they embed available receipt images inside the archive and recreate them in the app's private receipt storage during restore. If an image referenced by the backup metadata is unavailable, the receipt is restored without that image and the restore reports the missing image count.
 
 ## Technology
 - Kotlin
