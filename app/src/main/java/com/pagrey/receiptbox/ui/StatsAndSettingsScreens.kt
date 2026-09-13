@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pagrey.receiptbox.data.Receipt
@@ -46,37 +45,35 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp), contentPadding = PaddingValues(bottom = 88.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
                 Spacer(Modifier.height(4.dp))
-                Box(Modifier.fillMaxWidth()) {
-                    Surface(shape = ReceiptBoxDesign.LARGE_SHAPE, color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 3.dp) {
-                        Column(Modifier.fillMaxWidth().padding(22.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("CONTROL DE GASTOS", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.height(6.dp))
-                                    Text("Este mes", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                                    Text(statsEuro.format(monthTotal), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-                                }
-                                Surface(shape = ReceiptBoxDesign.MEDIUM_SHAPE, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
-                                    Icon(Icons.Default.BarChart, null, Modifier.padding(11.dp).size(26.dp), tint = MaterialTheme.colorScheme.primary)
-                                }
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 3.dp) {
+                    Column(Modifier.fillMaxWidth().padding(22.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                            Column(Modifier.weight(1f)) {
+                                Text("CONTROL DE GASTOS", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.height(6.dp))
+                                Text("Este mes", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                                Text(statsEuro.format(monthTotal), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                             }
-                            Spacer(Modifier.height(14.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                                Text("${monthReceipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("${monthReceiptsWithTotal.size} con importe", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Surface(shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_MEDIUM), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
+                                Icon(Icons.Default.BarChart, null, Modifier.padding(11.dp).size(26.dp), tint = MaterialTheme.colorScheme.primary)
                             }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                            Text("${monthReceipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${monthReceiptsWithTotal.size} con importe", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
             item { Text("Gasto por categoría", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
             if (categoryTotals.isEmpty()) {
-                item { Surface(Modifier.fillMaxWidth(), shape = ReceiptBoxDesign.LARGE_SHAPE, color = MaterialTheme.colorScheme.surfaceVariant) { Text("Aún no hay gastos categorizados este mes.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                item { Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surfaceVariant) { Text("Aún no hay gastos categorizados este mes.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
             } else {
                 items(categoryTotals.size) { index ->
                     val (category, amount) = categoryTotals[index]
                     val fraction = if (monthTotal > 0) (amount / monthTotal).toFloat() else 0f
-                    Surface(Modifier.fillMaxWidth(), shape = ReceiptBoxDesign.MEDIUM_SHAPE, color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_MEDIUM), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(category, fontWeight = FontWeight.SemiBold); Text(statsEuro.format(amount), fontWeight = FontWeight.Bold) }
                             LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, Modifier.fillMaxWidth(), trackColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -88,7 +85,7 @@ fun StatisticsScreen(receipts: List<Receipt>, onBack: () -> Unit) {
             item {
                 Spacer(Modifier.height(4.dp))
                 Text("Resumen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Surface(Modifier.fillMaxWidth(), shape = ReceiptBoxDesign.LARGE_SHAPE, color = MaterialTheme.colorScheme.surfaceVariant) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surfaceVariant) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         SummaryRow("Gasto acumulado", statsEuro.format(allReceiptsWithTotal.sumOf { it.total ?: 0.0 }))
                         SummaryRow("Tickets registrados", receipts.size.toString())
@@ -153,9 +150,9 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp), contentPadding = PaddingValues(bottom = 88.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
                 Spacer(Modifier.height(4.dp))
-                Surface(Modifier.fillMaxWidth(), shape = ReceiptBoxDesign.LARGE_SHAPE, color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 3.dp) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 3.dp) {
                     Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = ReceiptBoxDesign.MEDIUM_SHAPE, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
+                        Surface(shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_MEDIUM), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
                             Icon(Icons.Default.Settings, null, Modifier.padding(11.dp).size(27.dp), tint = MaterialTheme.colorScheme.primary)
                         }
                         Column(Modifier.padding(start = 14.dp)) {
@@ -167,7 +164,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
             }
             item {
                 Text("Apariencia", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Surface(Modifier.fillMaxWidth(), shape = ReceiptBoxDesign.LARGE_SHAPE, color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
                     Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (darkTheme) Icons.Default.DarkMode else Icons.Default.LightMode, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
                         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) { Text("Modo oscuro", fontWeight = FontWeight.SemiBold); Text(if (darkTheme) "Activado" else "Desactivado", color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -177,7 +174,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
             }
             item {
                 Text("Aplicación", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Surface(Modifier.fillMaxWidth(), shape = ReceiptBoxDesign.LARGE_SHAPE, color = MaterialTheme.colorScheme.surfaceVariant) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surfaceVariant) {
                     Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         SettingRow(Icons.Default.Category, "Categorías", "Alimentación, Hogar, Transporte y más")
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -200,7 +197,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
             }
             item {
                 Text("Información", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Surface(Modifier.fillMaxWidth(), shape = ReceiptBoxDesign.LARGE_SHAPE, color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
                     Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         SettingRow(Icons.Default.ReceiptLong, "ReceiptBox", "Tus tickets, siempre a mano")
                         SettingRow(Icons.Default.Info, "Versión", "0.2.0")
