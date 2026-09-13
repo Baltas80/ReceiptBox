@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <exclude domain="database" path="." />
+        <exclude domain="file" path="receipts/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="." />
+        <include domain="file" path="receipts/" />
+        <include domain="sharedpref" path="receiptbox_settings.xml" />
+    </device-transfer>
+</data-extraction-rules>
