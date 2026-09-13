@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
@@ -164,6 +165,16 @@ class ReceiptFullBackupTest {
         }
             .onSuccess { error("Oversized export image set should be rejected") }
             .onFailure { assertEquals("Las imágenes de la copia superan el tamaño máximo permitido", it.message) }
+    }
+
+    @Test
+    fun rejectsOversizedInputStream() {
+        val oversized = ByteArray(32 * 1024 * 1024 + 1)
+        runCatching {
+            ReceiptFullBackup.import(ByteArrayInputStream(oversized), Files.createTempDirectory("receiptbox-full-backup-stream-limit").toFile())
+        }
+            .onSuccess { error("Oversized input stream should be rejected") }
+            .onFailure { assertEquals("La copia supera el tamaño máximo permitido", it.message) }
     }
 
     private fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray = ByteArrayOutputStream().use { output ->
