@@ -62,6 +62,23 @@ class ReceiptFullBackupTest {
     }
 
     @Test
+    fun cleanupImagesRemovesOnlyRestoredFiles() {
+        val temp = Files.createTempDirectory("receiptbox-full-backup-cleanup").toFile()
+        try {
+            val zip = ReceiptFullBackup.export(listOf(Receipt(imagePath = "/source.jpg"))) { byteArrayOf(8, 9) }
+            val result = ReceiptFullBackup.import(zip, temp)
+            val restoredPath = result.receipts.single().imagePath
+            assertTrue(File(restoredPath).isFile)
+
+            result.cleanupImages()
+
+            assertFalse(File(restoredPath).exists())
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsPathTraversalImageEntry() {
         val unsafeName = "images/" + ".." + "/escape.jpg"
         val zip = zipOf(
