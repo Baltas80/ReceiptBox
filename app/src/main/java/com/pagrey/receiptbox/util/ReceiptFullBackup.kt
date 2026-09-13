@@ -24,20 +24,16 @@ object ReceiptFullBackup {
         val missingImages: Int
     )
 
-    /** Creates a ZIP with backup.json and safely named image entries. */
     fun export(receipts: List<Receipt>, imageLoader: (String) -> ByteArray?): ByteArray {
         val metadata = JSONArray()
         val images = mutableListOf<Pair<String, ByteArray>>()
-
         receipts.forEachIndexed { index, receipt ->
             val imageBytes = receipt.imagePath.takeIf { it.isNotBlank() }?.let(imageLoader)
             val imageEntry = if (imageBytes != null) {
                 val entryName = "$IMAGE_PREFIX$index.jpg"
                 images += entryName to imageBytes
                 entryName
-            } else {
-                ""
-            }
+            } else ""
             metadata.put(JSONObject().apply {
                 put("merchant", receipt.merchant)
                 put("date", receipt.date)
@@ -50,10 +46,7 @@ object ReceiptFullBackup {
                 put("createdAt", receipt.createdAt)
             })
         }
-
-        val root = JSONObject()
-            .put("version", VERSION)
-            .put("receipts", metadata)
+        val root = JSONObject().put("version", VERSION).put("receipts", metadata)
         return ByteArrayOutputStream().use { output ->
             ZipOutputStream(output).use { zip ->
                 zip.putNextEntry(ZipEntry(METADATA_ENTRY))
@@ -69,7 +62,6 @@ object ReceiptFullBackup {
         }
     }
 
-    /** Restores metadata and extracts images into the app's private receipt directory. */
     fun import(zipBytes: ByteArray, imageDirectory: File): RestoreResult {
         require(zipBytes.isNotEmpty()) { "La copia está vacía" }
         val entries = linkedMapOf<String, ByteArray>()
@@ -82,7 +74,6 @@ object ReceiptFullBackup {
                 zip.closeEntry()
             }
         }
-
         val metadataBytes = entries[METADATA_ENTRY] ?: error("Falta backup.json")
         val root = JSONObject(String(metadataBytes, Charsets.UTF_8))
         require(root.optInt("version", -1) == VERSION) { "Versión de copia no compatible" }
@@ -92,14 +83,13 @@ object ReceiptFullBackup {
             for (i in 0 until items.length()) {
                 val item = items.optJSONObject(i) ?: continue
                 val imageEntry = item.optString("imageEntry")
+                if (imageEntry.isNotBlank()) require(isSafeImageEntry(imageEntry)) { "Referencia de imagen no válida" }
                 val imageBytes = imageEntry.takeIf { it.isNotBlank() }?.let { entries[it] }
-                val imagePath = if (imageBytes != null && isSafeImageEntry(imageEntry)) {
+                val imagePath = if (imageBytes != null) {
                     val target = File(imageDirectory, "restored_${UUID.randomUUID()}.jpg")
                     FileOutputStream(target).use { it.write(imageBytes) }
                     target.absolutePath
-                } else {
-                    ""
-                }
+                } else ""
                 add(Receipt(
                     merchant = item.optString("merchant"),
                     date = item.optString("date"),
@@ -118,8 +108,7 @@ object ReceiptFullBackup {
         return RestoreResult(restored, restoredImages, (expectedImages - restoredImages).coerceAtLeast(0))
     }
 
-    private fun isSafeEntry(name: String): Boolean =
-        name == METADATA_ENTRY || (name.startsWith(IMAGE_PREFIX) && isSafeImageEntry(name))
+    private fun isSafeEntry(name: String): Boolean = name == METADATA_ENTRY || (name.startsWith(IMAGE_PREFIX) && isSafeImageEntry(name))
 
     private fun isSafeImageEntry(name: String): Boolean {
         if (!name.startsWith(IMAGE_PREFIX) || name.contains("\\") || name.contains("..")) return false
