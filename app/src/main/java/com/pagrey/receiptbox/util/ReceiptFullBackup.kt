@@ -37,8 +37,18 @@ object ReceiptFullBackup {
     fun export(receipts: List<Receipt>, imageLoader: (String) -> ByteArray?): ByteArray {
         val metadata = JSONArray()
         val images = mutableListOf<Pair<String, ByteArray>>()
+        var totalImageBytes = 0L
         receipts.forEachIndexed { index, receipt ->
             val imageBytes = receipt.imagePath.takeIf { it.isNotBlank() }?.let(imageLoader)
+            if (imageBytes != null) {
+                require(imageBytes.size <= MAX_ENTRY_BYTES) {
+                    "Una imagen de la copia supera el tamaño máximo permitido"
+                }
+                totalImageBytes += imageBytes.size
+                require(totalImageBytes <= MAX_TOTAL_ENTRY_BYTES) {
+                    "Las imágenes de la copia superan el tamaño máximo permitido"
+                }
+            }
             val imageEntry = if (imageBytes != null) {
                 val entryName = "$IMAGE_PREFIX$index.jpg"
                 images += entryName to imageBytes
@@ -57,7 +67,7 @@ object ReceiptFullBackup {
             })
         }
         val root = JSONObject().put("version", VERSION).put("receipts", metadata)
-        return ByteArrayOutputStream().use { output ->
+        val result = ByteArrayOutputStream().use { output ->
             ZipOutputStream(output).use { zip ->
                 zip.putNextEntry(ZipEntry(METADATA_ENTRY))
                 zip.write(root.toString(2).toByteArray(Charsets.UTF_8))
@@ -70,6 +80,8 @@ object ReceiptFullBackup {
             }
             output.toByteArray()
         }
+        require(result.size <= MAX_BACKUP_BYTES) { "La copia supera el tamaño máximo permitido" }
+        return result
     }
 
     /** Restores metadata and images into the supplied private receipt directory. */
