@@ -54,8 +54,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -115,7 +118,8 @@ fun AddReceiptScreen(viewModel: ReceiptBoxViewModel, onSaved: (Long) -> Unit, on
     } else if (processing) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             CircularProgressIndicator()
-            Text("Analizando ticket…", modifier = Modifier.padding(top = 16.dp))
+            Text("Analizando ticket…", modifier = Modifier.padding(top = 16.dp), style = MaterialTheme.typography.titleMedium)
+            Text("Extrayendo comercio, fecha y total", modifier = Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else {
         ReviewReceipt(ocr, imageFile!!, error, onCancel) { edited -> viewModel.save(edited, onSaved) }
@@ -138,23 +142,31 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
     val missing = listOf(merchantInvalid, date.isBlank(), totalInvalid).count { it }
     val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
     val scrollState = rememberScrollState()
+    val cardShape = RoundedCornerShape(ReceiptBoxDesign.CORNER_MEDIUM)
 
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
             .imePadding()
-            .padding(16.dp)
+            .padding(ReceiptBoxDesign.SCREEN_PADDING)
     ) {
         Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium)
         Text("Comprueba y corrige los datos antes de guardarlo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (bitmap != null) {
-            Spacer(Modifier.height(12.dp))
-            Image(bitmap.asImageBitmap(), "Vista previa del ticket", Modifier.fillMaxWidth().height(180.dp))
+            Spacer(Modifier.height(ReceiptBoxDesign.ITEM_SPACING))
+            Box(Modifier.fillMaxWidth().clip(cardShape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, cardShape)) {
+                Image(
+                    bitmap.asImageBitmap(),
+                    "Vista previa del ticket",
+                    Modifier.fillMaxWidth().height(ReceiptBoxDesign.PREVIEW_HEIGHT).clip(cardShape),
+                    contentScale = ContentScale.Fit
+                )
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.height(ReceiptBoxDesign.ITEM_SPACING))
+        Card(Modifier.fillMaxWidth(), shape = cardShape) {
+            Row(Modifier.fillMaxWidth().padding(ReceiptBoxDesign.REVIEW_CARD_PADDING), verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber,
                     null,
@@ -163,7 +175,7 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
                 )
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(if (missing == 0) "Datos detectados" else "Revisión recomendada", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    Text(if (missing == 0) "Datos detectados" else "Revisión recomendada", fontWeight = FontWeight.SemiBold)
                     Text(
                         if (missing == 0) "Los campos principales están completos."
                         else "Hay $missing campos que necesitan revisión. Revísalos antes de guardar.",
@@ -212,7 +224,7 @@ private fun ReviewReceipt(ocr: OcrResult?, file: File, error: String?, onCancel:
             ) { Text("Guardar") }
         }
         Spacer(Modifier.height(16.dp))
-        Card(Modifier.fillMaxWidth()) {
+        Card(Modifier.fillMaxWidth(), shape = cardShape) {
             Text("OCR original", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
             Text(ocr?.rawText?.ifBlank { "Sin texto detectado" } ?: "Sin texto detectado", modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
         }
@@ -242,7 +254,7 @@ private fun CameraCapture(onCaptured: (File) -> Unit, onGallery: () -> Unit, onC
 
     if (!hasPermission) {
         Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("Necesitamos acceso a la cámara para fotografiar el ticket.")
+            Text("Necesitamos acceso a la cámara para fotografiar el ticket.", style = MaterialTheme.typography.titleMedium)
             Button(onClick = { permission.launch(Manifest.permission.CAMERA) }, modifier = Modifier.padding(top = 16.dp)) { Text("Permitir cámara") }
             Button(onClick = onGallery, modifier = Modifier.padding(top = 8.dp)) { Text("Importar imagen") }
             Button(onClick = onCancel, modifier = Modifier.padding(top = 8.dp)) { Text("Cancelar") }
