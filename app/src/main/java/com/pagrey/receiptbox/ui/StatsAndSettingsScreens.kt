@@ -198,7 +198,11 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
                         SettingRow(Icons.Default.Category, "Categorías", "Alimentación, Hogar, Transporte y más")
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Backup, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-                            Column(Modifier.weight(1f).padding(start = 14.dp)) { Text("Copia de seguridad", fontWeight = FontWeight.SemiBold); Text("JSON · ${receipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                                Text("Copia de seguridad", fontWeight = FontWeight.SemiBold)
+                                Text("JSON · ${receipts.size} tickets", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Los archivos de imagen no se incluyen", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             Row { TextButton(onClick = { backupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/json"; putExtra(Intent.EXTRA_TITLE, "receiptbox_backup.json") }) }) { Text("Crear") }; TextButton(onClick = { restoreLauncher.launch(arrayOf("application/json", "text/plain")) }) { Text("Restaurar") } }
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
