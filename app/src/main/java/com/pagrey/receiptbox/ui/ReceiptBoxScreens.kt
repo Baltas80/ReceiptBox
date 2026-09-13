@@ -53,7 +53,7 @@ fun HomeScreen(receipts: List<Receipt>, onAdd: () -> Unit, onOpen: (Long) -> Uni
         }
     ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.fillMaxSize().padding(padding).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
             contentPadding = PaddingValues(
                 start = ReceiptBoxDesign.SCREEN_PADDING,
                 end = ReceiptBoxDesign.SCREEN_PADDING,
@@ -286,15 +286,22 @@ fun ReceiptDetailScreen(receipt: Receipt?, onBack: () -> Unit, onDelete: (Receip
     )
 }
 
-@Composable private fun DetailField(label: String, value: String) { Column(Modifier.fillMaxWidth()) { Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value.ifBlank { "—" }, style = MaterialTheme.typography.bodyLarge) } }
+@Composable private fun DetailField(label: String, value: String) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_SMALL), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(ReceiptBoxDesign.CARD_PADDING)) {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(value.ifBlank { "—" }, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
 
 @Composable
-fun BottomNav(selected: String, onSelect: (String) -> Unit) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
-        NavigationBarItem(selected == "home", { onSelect("home") }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Inicio") })
-        NavigationBarItem(selected == "tickets", { onSelect("tickets") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Tickets") })
-        NavigationBarItem(selected == "add", { onSelect("add") }, icon = { Icon(Icons.Default.AddCircle, null) }, label = { Text("Añadir") })
-        NavigationBarItem(selected == "stats", { onSelect("stats") }, icon = { Icon(Icons.Default.BarChart, null) }, label = { Text("Estadísticas") })
-        NavigationBarItem(selected == "settings", { onSelect("settings") }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Ajustes") })
+fun BottomNav(route: String, onNavigate: (String) -> Unit) {
+    NavigationBar {
+        NavigationBarItem(selected = route == "home", onClick = { onNavigate("home") }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Inicio") })
+        NavigationBarItem(selected = route == "tickets", onClick = { onNavigate("tickets") }, icon = { Icon(Icons.Default.ReceiptLong, null) }, label = { Text("Tickets") })
+        NavigationBarItem(selected = route == "stats", onClick = { onNavigate("stats") }, icon = { Icon(Icons.Default.BarChart, null) }, label = { Text("Estadísticas") })
+        NavigationBarItem(selected = route == "settings", onClick = { onNavigate("settings") }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Ajustes") })
     }
 }
