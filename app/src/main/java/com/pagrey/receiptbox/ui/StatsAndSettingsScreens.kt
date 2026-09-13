@@ -25,12 +25,14 @@ import com.pagrey.receiptbox.util.parseReceiptDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.FileInputStream
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.util.Locale
 
 private val statsEuro = NumberFormat.getCurrencyInstance(Locale("es", "ES"))
 private val statsCategories = listOf("Alimentación", "Hogar", "Transporte", "Salud", "Tecnología", "Ocio", "Ropa", "Otros")
+private const val MAX_BACKUP_IMAGE_BYTES = 10 * 1024 * 1024
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,9 +104,27 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
             item { Spacer(Modifier.height(4.dp)); Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.primaryContainer, tonalElevation = 3.dp) { Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) { Surface(shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_MEDIUM), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) { Icon(Icons.Default.Settings, null, Modifier.padding(11.dp).size(27.dp), tint = MaterialTheme.colorScheme.primary) }; Column(Modifier.padding(start = 14.dp)) { Text("Personaliza ReceiptBox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Aspecto, datos y exportaciones", color = MaterialTheme.colorScheme.onSurfaceVariant) } } } }
             item { Text("Apariencia", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) { Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically) { Icon(if (darkTheme) Icons.Default.DarkMode else Icons.Default.LightMode, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary); Column(Modifier.weight(1f).padding(horizontal = 14.dp)) { Text("Modo oscuro", fontWeight = FontWeight.SemiBold); Text(if (darkTheme) "Activado" else "Desactivado", color = MaterialTheme.colorScheme.onSurfaceVariant) }; Switch(checked = darkTheme, onCheckedChange = onDarkThemeChanged) } } }
             item { Text("Aplicación", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surfaceVariant) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { SettingRow(Icons.Default.Category, "Categorías", "Alimentación, Hogar, Transporte y más"); Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Info, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary); Column(Modifier.weight(1f).padding(horizontal = 14.dp)) { Text("Versión", fontWeight = FontWeight.SemiBold); Text("0.2.0", color = MaterialTheme.colorScheme.onSurfaceVariant) } } } } }
-            item { Text("Datos y exportaciones", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { SettingAction(Icons.Default.Backup, "Copia JSON", "Datos de tickets; no incluye imágenes") { backupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/json"; putExtra(Intent.EXTRA_TITLE, "receiptbox-backup.json") }) }; SettingAction(Icons.Default.FolderZip, "Copia completa", "ZIP · tickets + imágenes disponibles") { scope.launch(Dispatchers.IO) { val bytes = ReceiptFullBackup.export(receipts) { path -> File(path).takeIf { it.isFile }?.readBytes() }; scope.launch(Dispatchers.Main) { pendingFullBackupBytes = bytes; fullBackupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/zip"; putExtra(Intent.EXTRA_TITLE, "receiptbox-full-backup.zip") }) } } }; SettingAction(Icons.Default.Restore, "Restaurar JSON", "Añade los tickets de una copia JSON") { restoreLauncher.launch(arrayOf("application/json", "text/*")) }; SettingAction(Icons.Default.FolderZip, "Restaurar copia completa", "Restaura tickets e imágenes disponibles") { fullRestoreLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }; SettingAction(Icons.Default.PictureAsPdf, "Exportar PDF", "Genera un informe imprimible") { pdfLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/pdf"; putExtra(Intent.EXTRA_TITLE, "receiptbox-report.pdf") }) }; SettingAction(Icons.Default.TableChart, "Exportar CSV", "Exporta los datos para Excel u otras hojas") { csvExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "text/csv"; putExtra(Intent.EXTRA_TITLE, "receiptbox-export.csv") }) } } } }
+            item { Text("Datos y exportaciones", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { SettingAction(Icons.Default.Backup, "Copia JSON", "Datos de tickets; no incluye imágenes") { backupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/json"; putExtra(Intent.EXTRA_TITLE, "receiptbox-backup.json") }) }; SettingAction(Icons.Default.FolderZip, "Copia completa", "ZIP · tickets + imágenes disponibles") { scope.launch(Dispatchers.IO) { val bytes = ReceiptFullBackup.export(receipts) { path -> readBackupImage(path) }; scope.launch(Dispatchers.Main) { pendingFullBackupBytes = bytes; fullBackupExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/zip"; putExtra(Intent.EXTRA_TITLE, "receiptbox-full-backup.zip") }) } } }; SettingAction(Icons.Default.Restore, "Restaurar JSON", "Añade los tickets de una copia JSON") { restoreLauncher.launch(arrayOf("application/json", "text/*")) }; SettingAction(Icons.Default.FolderZip, "Restaurar copia completa", "Restaura tickets e imágenes disponibles") { fullRestoreLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }; SettingAction(Icons.Default.PictureAsPdf, "Exportar PDF", "Genera un informe imprimible") { pdfLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "application/pdf"; putExtra(Intent.EXTRA_TITLE, "receiptbox-report.pdf") }) }; SettingAction(Icons.Default.TableChart, "Exportar CSV", "Exporta los datos para Excel u otras hojas") { csvExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type = "text/csv"; putExtra(Intent.EXTRA_TITLE, "receiptbox-export.csv") }) } } } }
             item { Text("Privacidad", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(ReceiptBoxDesign.CORNER_LARGE), color = MaterialTheme.colorScheme.surfaceVariant) { Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.Top) { Icon(Icons.Default.Lock, null, Modifier.size(27.dp), tint = MaterialTheme.colorScheme.primary); Column(Modifier.padding(start = 14.dp)) { Text("Tus tickets se almacenan localmente", fontWeight = FontWeight.SemiBold); Text("ReceiptBox no necesita una cuenta para conservar tus datos en el dispositivo.", color = MaterialTheme.colorScheme.onSurfaceVariant) } } } }
         }
+    }
+}
+
+private fun readBackupImage(path: String): ByteArray? {
+    val file = File(path)
+    if (!file.isFile) return null
+    if (file.length() > MAX_BACKUP_IMAGE_BYTES) {
+        throw IllegalArgumentException("Una imagen de la copia supera el tamaño máximo permitido")
+    }
+    return FileInputStream(file).use { input ->
+        val bytes = ByteArray(file.length().toInt())
+        var offset = 0
+        while (offset < bytes.size) {
+            val count = input.read(bytes, offset, bytes.size - offset)
+            if (count < 0) break
+            offset += count
+        }
+        if (offset == bytes.size) bytes else bytes.copyOf(offset)
     }
 }
 
