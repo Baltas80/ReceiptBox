@@ -114,6 +114,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
     val context = LocalContext.current
     val csvContent = remember(receipts) { ReceiptCsvExporter.export(receipts) }
     val backupContent = remember(receipts) { ReceiptBackup.export(receipts) }
+    var pendingRestore by remember { mutableStateOf<List<Receipt>?>(null) }
     val csvExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) result.data?.data?.let { uri ->
             runCatching {
@@ -156,11 +157,30 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
             context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { ReceiptBackup.import(it.readText()) }
                 ?: error("No se pudo leer la copia")
         }.onSuccess { restored ->
-            onRestore(restored)
-            Toast.makeText(context, "Restaurados ${restored.size} tickets", Toast.LENGTH_SHORT).show()
+            pendingRestore = restored
         }.onFailure {
             Toast.makeText(context, "Copia no válida: ${it.message ?: "error desconocido"}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    pendingRestore?.let { restored ->
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null },
+            title = { Text("Restaurar copia", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Se añadirán ${restored.size} tickets a los existentes. Las imágenes no se incluyen en esta copia. ¿Continuar?")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRestore(restored)
+                    pendingRestore = null
+                    Toast.makeText(context, "Restaurados ${restored.size} tickets", Toast.LENGTH_SHORT).show()
+                }) { Text("Restaurar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRestore = null }) { Text("Cancelar") }
+            }
+        )
     }
 
     Scaffold(topBar = {
