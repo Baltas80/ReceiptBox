@@ -7,6 +7,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -82,6 +83,23 @@ object ReceiptFullBackup {
         }
         require(result.size <= MAX_BACKUP_BYTES) { "La copia supera el tamaño máximo permitido" }
         return result
+    }
+
+    /** Reads and restores a backup stream without allowing an unbounded raw upload into memory. */
+    fun import(input: InputStream, imageDirectory: File): RestoreResult {
+        val bytes = ByteArrayOutputStream().use { output ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var total = 0L
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                require(total <= MAX_BACKUP_BYTES) { "La copia supera el tamaño máximo permitido" }
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+        return import(bytes, imageDirectory)
     }
 
     /** Restores metadata and images into the supplied private receipt directory. */
