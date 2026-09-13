@@ -17,6 +17,10 @@ object ReceiptFullBackup {
     private const val VERSION = 1
     private const val METADATA_ENTRY = "backup.json"
     private const val IMAGE_PREFIX = "images/"
+    private const val MAX_BACKUP_BYTES = 32 * 1024 * 1024
+    private const val MAX_ENTRY_BYTES = 10 * 1024 * 1024
+    private const val MAX_TOTAL_ENTRY_BYTES = 32 * 1024 * 1024
+    private const val MAX_ENTRIES = 10_000
 
     data class RestoreResult(
         val receipts: List<Receipt>,
@@ -71,13 +75,22 @@ object ReceiptFullBackup {
     /** Restores metadata and images into the supplied private receipt directory. */
     fun import(zipBytes: ByteArray, imageDirectory: File): RestoreResult {
         require(zipBytes.isNotEmpty()) { "La copia está vacía" }
+        require(zipBytes.size <= MAX_BACKUP_BYTES) { "La copia supera el tamaño máximo permitido" }
         val entries = linkedMapOf<String, ByteArray>()
+        var totalBytes = 0L
+        var entryCount = 0
         ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
+                entryCount++
+                require(entryCount <= MAX_ENTRIES) { "La copia contiene demasiadas entradas" }
                 require(!entry.isDirectory) { "La copia contiene una carpeta no válida" }
                 require(isSafeEntry(entry.name)) { "Entrada de copia no válida" }
-                require(entries.put(entry.name, zip.readBytes()) == null) { "Entrada duplicada: ${entry.name}" }
+                val bytes = readEntryLimited(zip, MAX_ENTRY_BYTES) { read ->
+                    totalBytes += read
+                    require(totalBytes <= MAX_TOTAL_ENTRY_BYTES) { "La copia descomprimida supera el tamaño máximo permitido" }
+                }
+                require(entries.put(entry.name, bytes) == null) { "Entrada duplicada: ${entry.name}" }
                 zip.closeEntry()
             }
         }
@@ -130,6 +143,19 @@ object ReceiptFullBackup {
         }
         val expectedImages = parsed.count { it.hasImageReference }
         return RestoreResult(restored, restoredImages, (expectedImages - restoredImages).coerceAtLeast(0), createdPaths.toList())
+    }
+
+    private fun readEntryLimited(input: ZipInputStream, maxBytes: Int, onRead: (Int) -> Unit): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            require(output.size() + count <= maxBytes) { "Una entrada de la copia supera el tamaño máximo permitido" }
+            output.write(buffer, 0, count)
+            onRead(count)
+        }
+        return output.toByteArray()
     }
 
     private data class ParsedReceipt(
