@@ -205,7 +205,11 @@ try {
 
         restored += item.receipt.copy(imagePath = imagePath)
     }
-        } return RestoreResult(
+        } catch (error: Throwable) {
+    stagingDirectory.deleteRecursively()
+    throw error
+}
+return RestoreResult(
     receipts = restored,
     restoredImages = restoredImages,
     missingImages = (expectedImages - restoredImages).coerceAtLeast(0),
