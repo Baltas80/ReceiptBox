@@ -25,12 +25,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -123,24 +126,63 @@ fun DocumentScannerReceiptScreen(
 
     when {
         imageFile == null && error == null -> {
-            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                CircularProgressIndicator()
-                Text("Preparando escáner de tickets…", modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
-                Text("Detectará, recortará y mejorará automáticamente el ticket.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
-                Button(onClick = onCancel, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Cancelar") }
+            Column(
+                Modifier.fillMaxSize().padding(ReceiptBoxDesign.SCREEN_PADDING),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    Column(
+                        Modifier.padding(ReceiptBoxDesign.CARD_PADDING),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        Text("Preparando escáner", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
+                        Text("Detectará, recortará y mejorará automáticamente el ticket.", color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
+                    }
+                }
+                OutlinedButton(onClick = onCancel, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) {
+                    Text("Cancelar")
+                }
             }
         }
         imageFile == null -> {
-            Column(Modifier.fillMaxSize().padding(ReceiptBoxDesign.SCREEN_PADDING), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("No se ha podido iniciar el escáner.", style = MaterialTheme.typography.titleLarge)
-                Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
+            Column(
+                Modifier.fillMaxSize().padding(ReceiptBoxDesign.SCREEN_PADDING),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    Column(Modifier.padding(ReceiptBoxDesign.CARD_PADDING)) {
+                        Text("No se ha podido iniciar el escáner.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(error.orEmpty(), color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
+                    }
+                }
                 Button(onClick = onCancel, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Volver") }
             }
         }
         processing -> {
-            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                CircularProgressIndicator()
-                Text("Analizando ticket…", modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
+            Column(
+                Modifier.fillMaxSize().padding(ReceiptBoxDesign.SCREEN_PADDING),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    Column(Modifier.padding(ReceiptBoxDesign.CARD_PADDING), horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
+                        Text("Analizando ticket", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
+                        Text("Extrayendo comercio, fecha y total…", color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
+                    }
+                }
             }
         }
         else -> ScannerReviewReceipt(ocr, imageFile!!, error, onCancel) { edited -> viewModel.save(edited, onSaved) }
@@ -172,24 +214,35 @@ private fun ScannerReviewReceipt(
     val scrollState = rememberScrollState()
 
     Column(Modifier.fillMaxSize().verticalScroll(scrollState).imePadding().padding(ReceiptBoxDesign.SCREEN_PADDING)) {
-        Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("CAPTURA", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text("Revisar ticket", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
         Text("Comprueba los datos detectados antes de guardarlo. Puedes corregir cualquier campo.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = ReceiptBoxDesign.COMPACT_SPACING))
 
         if (bitmap != null) {
             Spacer(Modifier.height(ReceiptBoxDesign.ITEM_SPACING))
-            Card(Modifier.fillMaxWidth()) {
+            Card(
+                Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
                 Image(bitmap.asImageBitmap(), "Ticket escaneado", Modifier.fillMaxWidth().height(ReceiptBoxDesign.PREVIEW_HEIGHT).padding(ReceiptBoxDesign.REVIEW_CARD_PADDING))
             }
         }
 
         Spacer(Modifier.height(ReceiptBoxDesign.SECTION_SPACING))
-        Card(Modifier.fillMaxWidth()) {
+        Card(
+            Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(
+                containerColor = if (missing == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
             Row(Modifier.fillMaxWidth().padding(ReceiptBoxDesign.REVIEW_CARD_PADDING), verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (missing == 0) Icons.Default.CheckCircle else Icons.Default.WarningAmber, null, Modifier.size(28.dp), tint = if (missing == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                 Spacer(Modifier.width(ReceiptBoxDesign.COMPACT_SPACING))
                 Column(Modifier.weight(1f)) {
-                    Text(if (missing == 0) "Datos detectados" else "Revisión necesaria", fontWeight = FontWeight.SemiBold)
-                    Text(if (missing == 0) "Los campos principales están completos." else "Hay $missing campos que necesitan revisión.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (missing == 0) "Datos detectados" else "Revisión necesaria", fontWeight = FontWeight.Bold)
+                    Text(if (missing == 0) "Los campos principales están completos." else "Hay $missing campos que necesitan revisión.", color = if (missing == 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer)
                 }
             }
         }
@@ -200,14 +253,18 @@ private fun ScannerReviewReceipt(
         OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.COMPACT_SPACING), label = { Text("Comercio") }, singleLine = true, isError = merchantInvalid)
         OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.FIELD_SPACING), label = { Text("Fecha") }, supportingText = { Text("Ejemplo: 13/09/2026") }, singleLine = true, isError = dateInvalid)
         OutlinedTextField(total, { total = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.FIELD_SPACING), label = { Text("Total") }, singleLine = true, isError = totalInvalid)
-        if (totalInvalid) Text("Introduce un total válido mayor que 0 €.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        if (totalInvalid) Text("Introduce un total válido mayor que 0 €.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
 
         Text("Información adicional", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING))
         OutlinedTextField(tax, { tax = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.COMPACT_SPACING), label = { Text("IVA") }, singleLine = true)
         OutlinedTextField(number, { number = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.FIELD_SPACING), label = { Text("N.º de ticket") }, singleLine = true)
         Spacer(Modifier.height(ReceiptBoxDesign.FIELD_SPACING))
         androidx.compose.foundation.layout.Box {
-            Button(onClick = { categoryExpanded = true }, modifier = Modifier.fillMaxWidth().height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Categoría: $category") }
+            Button(
+                onClick = { categoryExpanded = true },
+                modifier = Modifier.fillMaxWidth().height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT),
+                colors = ButtonDefaults.tonalButtonColors()
+            ) { Text("Categoría: $category") }
             DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
                 scannerCategories.forEach { item -> DropdownMenuItem(text = { Text(item) }, onClick = { category = item; categoryExpanded = false }) }
             }
@@ -215,7 +272,7 @@ private fun ScannerReviewReceipt(
 
         Spacer(Modifier.height(ReceiptBoxDesign.SECTION_SPACING))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ReceiptBoxDesign.COMPACT_SPACING)) {
-            Button(onClick = onCancel, modifier = Modifier.weight(1f).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Cancelar") }
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)) { Text("Cancelar") }
             Button(
                 onClick = {
                     val parsedTotal = parseReceiptAmount(total)
@@ -225,7 +282,7 @@ private fun ScannerReviewReceipt(
                 },
                 enabled = !merchantInvalid && !dateInvalid && !totalInvalid,
                 modifier = Modifier.weight(1f).height(ReceiptBoxDesign.PRIMARY_BUTTON_HEIGHT)
-            ) { Text("Guardar") }
+            ) { Text("Guardar ticket") }
         }
         Spacer(Modifier.height(ReceiptBoxDesign.ITEM_SPACING))
     }
