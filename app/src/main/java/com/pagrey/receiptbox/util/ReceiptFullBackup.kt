@@ -24,15 +24,44 @@ object ReceiptFullBackup {
     private const val MAX_ENTRIES = 10_000
 
     data class RestoreResult(
-        val receipts: List<Receipt>,
-        val restoredImages: Int,
-        val missingImages: Int,
-        private val createdImagePaths: List<String> = emptyList()
-    ) {
-        /** Removes only images created by this restore operation, useful when the user cancels confirmation. */
-        fun cleanupImages() {
-            createdImagePaths.forEach { path -> File(path).delete() }
+    val receipts: List<Receipt>,
+    val restoredImages: Int,
+    val missingImages: Int,
+    private val createdImagePaths: List<String>,
+    private val stagingDirectory: File,
+    private val imageDirectory: File
+) {
+    fun commitImages(): List<Receipt> {
+        val committedReceipts = receipts.map { receipt ->
+            val stagedPath = receipt.imagePath
+
+            if (stagedPath.isBlank()) {
+                receipt
+            } else {
+                val stagedFile = File(stagedPath)
+                val targetFile = File(
+                    imageDirectory,
+                    stagedFile.name
+                )
+
+                require(
+                    stagedFile.renameTo(targetFile)
+                ) {
+                    "No se pudo finalizar la restauración de la imagen"
+                }
+
+                receipt.copy(imagePath = targetFile.absolutePath)
+            }
         }
+
+        stagingDirectory.deleteRecursively()
+        return committedReceipts
+    }
+
+    fun cleanupImages() {
+        stagingDirectory.deleteRecursively()
+    }
+}
     }
 
     fun export(receipts: List<Receipt>, imageLoader: (String) -> ByteArray?): ByteArray {
@@ -154,26 +183,36 @@ object ReceiptFullBackup {
         }
 
         val createdPaths = mutableListOf<String>()
-        val restored = mutableListOf<Receipt>()
-        var restoredImages = 0
-        try {
-            parsed.forEach { item ->
-                val imagePath = item.imageBytes?.let { bytes ->
-                    val target = File(imageDirectory, "restored_${UUID.randomUUID()}.jpg")
-                    FileOutputStream(target).use { it.write(bytes) }
-                    createdPaths += target.absolutePath
-                    restoredImages++
-                    target.absolutePath
-                }.orEmpty()
-                restored += item.receipt.copy(imagePath = imagePath)
-            }
-        } catch (error: Throwable) {
-            createdPaths.forEach { File(it).delete() }
-            throw error
-        }
-        val expectedImages = parsed.count { it.hasImageReference }
-        return RestoreResult(restored, restoredImages, (expectedImages - restoredImages).coerceAtLeast(0), createdPaths.toList())
+val restored = mutableListOf<Receipt>()
+var restoredImages = 0
+val stagingDirectory = File(
+    imageDirectory.parentFile,
+    "receiptbox_restore_staging_${UUID.randomUUID()}"
+).apply { mkdirs() }
+
+try {
+    parsed.forEach { item ->
+        val imagePath = item.imageBytes?.let { bytes ->
+            val target = File(
+                stagingDirectory,
+                "restored_${UUID.randomUUID()}.jpg"
+            )
+            FileOutputStream(target).use { it.write(bytes) }
+            createdPaths += target.absolutePath
+            restoredImages++
+            target.absolutePath
+        }.orEmpty()
+
+        restored += item.receipt.copy(imagePath = imagePath)
     }
+        } return RestoreResult(
+    receipts = restored,
+    restoredImages = restoredImages,
+    missingImages = (expectedImages - restoredImages).coerceAtLeast(0),
+    createdImagePaths = createdPaths.toList(),
+    stagingDirectory = stagingDirectory,
+    imageDirectory = imageDirectory
+)
 
     private fun readEntryLimited(input: ZipInputStream, maxBytes: Int, onRead: (Int) -> Unit): ByteArray {
         val output = ByteArrayOutputStream()
