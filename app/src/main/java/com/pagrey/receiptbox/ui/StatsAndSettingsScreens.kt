@@ -91,7 +91,7 @@ fun SettingsScreen(receipts: List<Receipt>, darkTheme: Boolean, onDarkThemeChang
         scope.launch(Dispatchers.IO) {
             runCatching {
                 context.contentResolver.openInputStream(uri)?.use { input ->
-                    ReceiptFullBackup.import(input, File(context.filesDir, "receipts"))
+                    ReceiptFullBackup.`import`(input, File(context.filesDir, "receipts"))
                 } ?: error("No se pudo leer la copia")
             }.onSuccess { restored -> scope.launch(Dispatchers.Main) { pendingFullRestore = restored } }
                 .onFailure { error -> scope.launch(Dispatchers.Main) { Toast.makeText(context, "Copia no válida: ${error.message ?: "error desconocido"}", Toast.LENGTH_LONG).show() } }
