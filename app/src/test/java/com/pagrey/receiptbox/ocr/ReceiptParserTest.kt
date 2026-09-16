@@ -21,7 +21,8 @@ class ReceiptParserTest {
         assertEquals("11/09/2026", result.date)
         assertEquals(12.50, result.total!!, 0.001)
         assertEquals(2.50, result.tax!!, 0.001)
-        assertEquals("ABC123", result.receiptNumber)
+        // Printed invoice/ticket identifiers are not used as the app's sequence number.
+        assertEquals("", result.receiptNumber)
     }
 
     @Test
@@ -132,6 +133,19 @@ class ReceiptParserTest {
         val result = ReceiptParser.parse(raw)
 
         assertEquals(123.96, result.total!!, 0.001)
+    }
+
+    @Test
+    fun recoversTotalWhenLabelAndAmountAreOnDifferentLines() {
+        val raw = """
+            TIENDA EJEMPLO
+            TOTAL A PAGAR
+            17,75
+        """.trimIndent()
+
+        val result = ReceiptParser.parse(raw)
+
+        assertEquals(17.75, result.total!!, 0.001)
     }
 
     @Test
