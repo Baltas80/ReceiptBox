@@ -7,6 +7,7 @@ data class ParsedReceipt(
     val date: String = "",
     val total: Double? = null,
     val tax: Double? = null,
+    // App-assigned sequence number. Printed receipt numbers are deliberately ignored.
     val receiptNumber: String = ""
 )
 
@@ -15,10 +16,11 @@ object ReceiptParser {
         val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }
         val merchant = findMerchant(lines)
         val date = DATE_REGEX.find(rawText)?.value.orEmpty()
-        val total = findAmount(rawText, listOf("total a pagar", "total", "importe total", "importe", "amount due", "amount", "a pagar", "pagar"))
+        val total = findAmount(rawText, listOf("total a pagar", "total", "importe total", "importe", "amount due", "amount", "a pagar", "pagar"), preferFinalTotal = true)
         val tax = findAmount(rawText, listOf("iva", "vat", "tax"))
-        val number = NUMBER_REGEX.find(rawText)?.groupValues?.getOrNull(1).orEmpty()
-        return ParsedReceipt(merchant, date, total, tax, number)
+        // Do not trust an OCR-extracted ticket number. ReceiptBox assigns its own
+        // stable sequence number when the receipt is saved.
+        return ParsedReceipt(merchant, date, total, tax, "")
     }
 
     private fun findMerchant(lines: List<String>): String {
@@ -50,28 +52,55 @@ object ReceiptParser {
             .orEmpty()
     }
 
-    private fun findAmount(text: String, labels: List<String>): Double? {
-        val labelPattern = labels.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
-        val labelLineRegex = Regex("(?im)^.*(?<![\\p{L}\\p{N}])(?:$labelPattern)(?![\\p{L}\\p{N}]).*$")
-
-        // Prefer an amount on the same line as an explicit label. Reject subtotal/discount
-        // lines so a common OCR ordering (SUBTOTAL ... TOTAL ...) cannot leak the wrong value.
-        for (match in labelLineRegex.findAll(text)) {
-            val line = match.value
-            val normalized = normalizeLabel(line)
-            if (isExcludedAmountLine(normalized)) continue
-            val amounts = AMOUNT_REGEX.findAll(line).mapNotNull { parseCandidate(it.value) }.toList()
-            if (amounts.isNotEmpty()) return amounts.last()
-        }
-
-        // OCR may split labels ("T O T A L", "I M P O R T E") or corrupt punctuation.
-        // Compare canonical letters only, but keep SUBTOTAL/SUB TOTAL explicitly excluded.
+    private fun findAmount(text: String, labels: List<String>, preferFinalTotal: Boolean = false): Double? {
+        val lines = text.lines().map { it.trim() }
         val normalizedLabels = labels.map { normalizeLabel(it) }
-        for (line in text.lines()) {
+
+        // First pass: explicit label and amount on the same line. For TOTAL, keep
+        // scanning instead of returning the first match because receipts often contain
+        // several totals/subtotals and the final total is the authoritative value.
+        val sameLineCandidates = mutableListOf<Pair<Int, Double>>()
+        lines.forEachIndexed { index, line ->
             val normalized = normalizeLabel(line)
-            if (isExcludedAmountLine(normalized)) continue
+            if (isExcludedAmountLine(normalized)) return@forEachIndexed
             if (normalizedLabels.any { normalized.contains(it) }) {
                 val amounts = AMOUNT_REGEX.findAll(line).mapNotNull { parseCandidate(it.value) }.toList()
+                if (amounts.isNotEmpty()) sameLineCandidates += index to amounts.last()
+            }
+        }
+        if (sameLineCandidates.isNotEmpty()) {
+            return if (preferFinalTotal) sameLineCandidates.last().second else sameLineCandidates.first().second
+        }
+
+        // Second pass: OCR frequently puts the label on one line and its amount on the
+        // following line. Search a short window after an explicit label.
+        val nearbyCandidates = mutableListOf<Pair<Int, Double>>()
+        lines.forEachIndexed { index, line ->
+            val normalized = normalizeLabel(line)
+            if (isExcludedAmountLine(normalized)) return@forEachIndexed
+            if (normalizedLabels.any { normalized.contains(it) }) {
+                for (offset in 1..2) {
+                    val next = lines.getOrNull(index + offset) ?: break
+                    if (isExcludedAmountLine(normalizeLabel(next))) continue
+                    val amounts = AMOUNT_REGEX.findAll(next).mapNotNull { parseCandidate(it.value) }.toList()
+                    if (amounts.isNotEmpty()) {
+                        nearbyCandidates += index to amounts.last()
+                        break
+                    }
+                }
+            }
+        }
+        if (nearbyCandidates.isNotEmpty()) {
+            return if (preferFinalTotal) nearbyCandidates.last().second else nearbyCandidates.first().second
+        }
+
+        // Last fallback: tolerate OCR splitting/corrupting the label while still requiring
+        // a plausible total label and never accepting subtotal/discount lines.
+        for (index in lines.indices) {
+            val normalized = normalizeLabel(lines[index])
+            if (isExcludedAmountLine(normalized)) continue
+            if (normalizedLabels.any { normalized.contains(it) }) {
+                val amounts = AMOUNT_REGEX.findAll(lines[index]).mapNotNull { parseCandidate(it.value) }.toList()
                 if (amounts.isNotEmpty()) return amounts.last()
             }
         }
@@ -79,8 +108,7 @@ object ReceiptParser {
     }
 
     private fun isExcludedAmountLine(normalized: String): Boolean =
-        normalized.contains("SUBTOTAL") || normalized.contains("SUBTOTAL") ||
-            normalized.contains("DESCUENTO") || normalized.contains("DISCOUNT")
+        normalized.contains("SUBTOTAL") || normalized.contains("DESCUENTO") || normalized.contains("DISCOUNT")
 
     private fun parseCandidate(value: String): Double? =
         parseReceiptAmount(value)?.takeIf { it in 0.01..100_000.0 }
@@ -88,11 +116,9 @@ object ReceiptParser {
     private fun normalizeLabel(value: String): String =
         value.uppercase().filter { it.isLetter() }
 
-    /** Kept public for compatibility; amount parsing is centralized in the shared utility. */
     fun parseNumber(value: String): Double? = parseReceiptAmount(value)
 
     private val DATE_REGEX = Regex("\\b(?:\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2})\\b")
-    private val NUMBER_REGEX = Regex("(?i)(?:ticket|receipt|factura|invoice|n[ºo.]?)\\s*[:#-]?\\s*([A-Z0-9-]{3,})")
     private val WEBSITE_REGEX = Regex("(?i)(?:https?://)?(?:www\\.)?([a-z0-9][a-z0-9-]{1,30}\\.[a-z]{2,})(?:/[^\\s]*)?")
     private val AMOUNT_REGEX = Regex("(?<!\\d)\\d{1,7}(?:(?:[.,]\\d{3})*[.,]\\d{1,2})?(?!\\d)")
 }
