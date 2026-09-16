@@ -23,20 +23,27 @@ class ReceiptBoxViewModel(application: Application) : AndroidViewModel(applicati
     fun delete(receipt: Receipt) = viewModelScope.launch { repository.delete(receipt) }
 
     fun save(receipt: Receipt, onSaved: (Long) -> Unit = {}) = viewModelScope.launch {
-        val id = if (receipt.id == 0L) repository.insert(receipt) else {
+        if (receipt.id == 0L) {
+            // Room's auto-generated id is the authoritative insertion order. This avoids
+            // confusing the app's sequence with a number printed by the shop on the receipt.
+            val id = repository.insert(receipt.copy(receiptNumber = ""))
+            repository.getById(id)?.let { saved ->
+                repository.update(saved.copy(receiptNumber = id.toString()))
+            }
+            onSaved(id)
+        } else {
             repository.update(receipt)
-            receipt.id
+            onSaved(receipt.id)
         }
-        onSaved(id)
     }
 
     fun restore(receipts: List<Receipt>, onRestored: (Int) -> Unit = {}) = viewModelScope.launch {
-        if (receipts.isNotEmpty()) repository.insertAll(receipts.map { it.copy(id = 0L) })
+        if (receipts.isNotEmpty()) repository.insertAll(receipts.map { it.copy(id = 0L, receiptNumber = "") })
         onRestored(receipts.size)
     }
 
     fun restoreFull(receipts: List<Receipt>, onRestored: (Int) -> Unit = {}) = viewModelScope.launch {
-        if (receipts.isNotEmpty()) repository.insertAll(receipts.map { it.copy(id = 0L) })
+        if (receipts.isNotEmpty()) repository.insertAll(receipts.map { it.copy(id = 0L, receiptNumber = "") })
         onRestored(receipts.size)
     }
 
