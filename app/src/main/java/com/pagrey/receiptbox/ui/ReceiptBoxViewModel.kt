@@ -38,13 +38,29 @@ class ReceiptBoxViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun restore(receipts: List<Receipt>, onRestored: (Int) -> Unit = {}) = viewModelScope.launch {
-        if (receipts.isNotEmpty()) repository.insertAll(receipts.map { it.copy(id = 0L, receiptNumber = "") })
-        onRestored(receipts.size)
+        restoreWithSequence(receipts, onRestored)
     }
 
     fun restoreFull(receipts: List<Receipt>, onRestored: (Int) -> Unit = {}) = viewModelScope.launch {
-        if (receipts.isNotEmpty()) repository.insertAll(receipts.map { it.copy(id = 0L, receiptNumber = "") })
-        onRestored(receipts.size)
+        restoreWithSequence(receipts, onRestored)
+    }
+
+    private suspend fun restoreWithSequence(receipts: List<Receipt>, onRestored: (Int) -> Unit) {
+        if (receipts.isEmpty()) {
+            onRestored(0)
+            return
+        }
+
+        // Bulk insertion returns the actual Room ids in insertion order. Assign the
+        // app-visible sequence after insertion so restored tickets behave exactly like
+        // newly captured tickets and never inherit the shop's printed ticket number.
+        val ids = repository.insertAll(receipts.map { it.copy(id = 0L, receiptNumber = "") })
+        ids.forEach { id ->
+            repository.getById(id)?.let { saved ->
+                repository.update(saved.copy(receiptNumber = id.toString()))
+            }
+        }
+        onRestored(ids.size)
     }
 
     fun get(id: Long, onResult: (Receipt?) -> Unit) = viewModelScope.launch {
