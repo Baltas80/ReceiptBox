@@ -186,4 +186,41 @@ class ReceiptParserTest {
         val result = ReceiptParser.parse(raw)
         assertEquals(1.52, result.tax!!, 0.001)
     }
+
+    @Test
+    fun ignoresCashWhenTotalAndPaymentAreOnSameOcrLine() {
+        val raw = """
+            SUPER ALCOOP 03
+            TOTAL 17,79 EFECTIVO 20,00 CAMBIO 2,21
+        """.trimIndent()
+        val result = ReceiptParser.parse(raw)
+        assertEquals(17.79, result.total!!, 0.001)
+    }
+
+    @Test
+    fun parsesSplitSpanishTaxRows() {
+        val raw = """
+            TIENDA EJEMPLO
+            TOTAL 17,79
+            IMPUESTOS BASE CUOTA
+            10,00 %
+            9,81 0,98
+            21,00 %
+            1,66 0,35
+            4,00 %
+            4,80 0,19
+            IMPUESTOS INCLUIDOS
+        """.trimIndent()
+        val result = ReceiptParser.parse(raw)
+        assertEquals(1.52, result.tax!!, 0.001)
+    }
+
+    @Test
+    fun correctsKnownSuperAlcoopOcrLossWithoutChangingGenericMerchantNames() {
+        val result = ReceiptParser.parse("SOR ALCOOP 03\n27/08/2026\nTOTAL 17,79")
+        assertEquals("SUPER ALCOOP 03", result.merchant)
+
+        val generic = ReceiptParser.parse("SOR EXAMPLE\n27/08/2026\nTOTAL 17,79")
+        assertEquals("SOR EXAMPLE", generic.merchant)
+    }
 }
