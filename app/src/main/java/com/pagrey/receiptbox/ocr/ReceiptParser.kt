@@ -32,21 +32,32 @@ object ReceiptParser {
             "total", "total a pagar", "importe", "iva", "vat", "tax", "factura", "ticket",
             "recibo", "fecha", "hora", "cliente", "comercio", "gracias por su visita",
             "ejemplar para el cliente", "forma de pago", "pago", "venta", "autorizacion",
-            "autorización", "domicilio", "telefono", "teléfono", "www"
+            "autorización", "domicilio", "telefono", "teléfono", "www",
+            "articulo", "artículo", "importe", "impuestos", "base", "cuota",
+            "impuestos base cuota", "impuestos incluidos"
         )
 
         return lines.asSequence()
             .filter { it.length in 3..80 }
             .filter { it.any { c -> c.isLetter() } }
             .filter { !it.first().isDigit() }
-            .filter { line -> line.count { it.isDigit() } <= 1 }
             .filter { line ->
                 val alnum = line.count { it.isLetterOrDigit() }
                 alnum == 0 || line.count { it.isDigit() }.toDouble() / alnum < 0.25
             }
             .filterNot { it.contains('%') }
             .filterNot { DATE_REGEX.containsMatchIn(it) }
-            .filterNot { line -> excluded.any { key -> line.equals(key, true) || line.startsWith("$key:", true) } }
+            .filterNot { line ->
+                val normalized = normalizeLabel(line)
+                excluded.any { key ->
+                    val normalizedKey = normalizeLabel(key)
+                    normalized == normalizedKey ||
+                        normalized.startsWith(normalizedKey) ||
+                        normalized.contains("IMPUESTOS") ||
+                        normalized.contains("ARTICULO") ||
+                        normalized.contains("BASECUOTA")
+                }
+            }
             .map { it.replace(Regex("\\s+"), " ").trim() }
             .firstOrNull()
             .orEmpty()
