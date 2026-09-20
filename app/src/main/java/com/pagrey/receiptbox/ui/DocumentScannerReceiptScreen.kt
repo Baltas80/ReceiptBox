@@ -205,7 +205,7 @@ private fun ScannerReviewReceipt(ocr: OcrResult?, file: File, error: String?, on
 
         val analysisText = when (ocr?.analysisSource) {
             OcrAnalysisSource.ONLINE_AI -> "IA online aplicada · resultado generado con imagen + OCR"
-            OcrAnalysisSource.LOCAL_FALLBACK -> "IA online no aceptada · se muestra el resultado OCR local"
+            OcrAnalysisSource.LOCAL_FALLBACK -> "IA online no aceptada · se muestra el resultado OCR local" + (ocr?.onlineFailure?.let { " · $it" } ?: "")
             OcrAnalysisSource.LOCAL -> "OCR local · IA online no configurada"
             null -> "Analizando…"
         }
