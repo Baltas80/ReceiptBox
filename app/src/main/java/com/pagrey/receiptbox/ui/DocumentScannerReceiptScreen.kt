@@ -52,6 +52,7 @@ import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.pagrey.receiptbox.data.Receipt
+import com.pagrey.receiptbox.ocr.OcrAnalysisSource
 import com.pagrey.receiptbox.ocr.OcrResult
 import com.pagrey.receiptbox.ocr.PocketScanImageEnhancer
 import com.pagrey.receiptbox.ocr.ReceiptOcrProcessor
@@ -201,6 +202,29 @@ private fun ScannerReviewReceipt(ocr: OcrResult?, file: File, error: String?, on
             }
         }
         if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
+
+        val analysisText = when (ocr?.analysisSource) {
+            OcrAnalysisSource.ONLINE_AI -> "IA online aplicada · resultado generado con imagen + OCR"
+            OcrAnalysisSource.LOCAL_FALLBACK -> "IA online no aceptada · se muestra el resultado OCR local"
+            OcrAnalysisSource.LOCAL -> "OCR local · IA online no configurada"
+            null -> "Analizando…"
+        }
+        val analysisColor = when (ocr?.analysisSource) {
+            OcrAnalysisSource.ONLINE_AI -> MaterialTheme.colorScheme.primaryContainer
+            OcrAnalysisSource.LOCAL_FALLBACK -> MaterialTheme.colorScheme.errorContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        }
+        Card(
+            Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.ITEM_SPACING),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = analysisColor)
+        ) {
+            Text(
+                analysisText,
+                modifier = Modifier.padding(ReceiptBoxDesign.REVIEW_CARD_PADDING),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
         Text("Datos principales", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = ReceiptBoxDesign.SECTION_SPACING))
         OutlinedTextField(merchant, { merchant = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.COMPACT_SPACING), label = { Text("Comercio") }, singleLine = true, isError = merchantInvalid)
         OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth().padding(top = ReceiptBoxDesign.FIELD_SPACING), label = { Text("Fecha") }, supportingText = { Text("Ejemplo: 13/09/2026") }, singleLine = true, isError = dateInvalid)
