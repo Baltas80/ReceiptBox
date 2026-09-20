@@ -5,6 +5,7 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
 
 env:
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
