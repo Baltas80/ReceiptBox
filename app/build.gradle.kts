@@ -13,8 +13,18 @@ android {
         applicationId = "com.pagrey.receiptbox"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
+
+        val geminiApiKey = System.getenv("GEMINI_API_KEY") ?: ""
+        val geminiModel = System.getenv("GEMINI_MODEL") ?: "gemini-3.8-flash"
+        buildConfigField("String", "GEMINI_API_KEY", "\"${geminiApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"${geminiModel.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
     }
 
     val releaseStoreFile = System.getenv("RELEASE_STORE_FILE")
@@ -38,8 +48,6 @@ android {
             }
         }
     }
-
-    buildFeatures { compose = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -84,8 +92,8 @@ dependencies {
 
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+    implementation("org.json:json:20240303")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
