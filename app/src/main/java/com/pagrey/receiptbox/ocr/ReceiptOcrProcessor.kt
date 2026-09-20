@@ -22,11 +22,7 @@ class ReceiptOcrProcessor {
                     continuation.resume(Result.failure(error))
                 }
         }.let { localResult ->
-            if (localResult.isFailure || !OnlineReceiptAi.isConfigured) return@let localResult
-            val local = localResult.getOrThrow()
-            val ai = OnlineReceiptAi.analyze(bitmap, local.rawText).getOrNull()
-            if (ai == null || !isPlausible(ai, local.parsed)) localResult
-            else Result.success(local.copy(parsed = ai))
+            applyOnlineSecondPass(localResult, bitmap)
         }
 
     suspend fun process(context: Context, file: java.io.File): Result<OcrResult> =
@@ -41,14 +37,47 @@ class ReceiptOcrProcessor {
                 }
                 .onFailure { error -> continuation.resume(Result.failure(error)) }
         }.let { localResult ->
-            if (localResult.isFailure || !OnlineReceiptAi.isConfigured) return@let localResult
-            val local = localResult.getOrThrow()
-            val bitmap = runCatching { android.graphics.BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
-                ?: return@let localResult
-            val ai = OnlineReceiptAi.analyze(bitmap, local.rawText).getOrNull()
-            if (ai == null || !isPlausible(ai, local.parsed)) localResult
-            else Result.success(local.copy(parsed = ai))
+            if (localResult.isFailure || !OnlineReceiptAi.isConfigured) {
+                localResult.map { it.copy(analysisSource = if (OnlineReceiptAi.isConfigured) OcrAnalysisSource.LOCAL_FALLBACK else OcrAnalysisSource.LOCAL) }
+            } else {
+                val local = localResult.getOrThrow()
+                val bitmap = runCatching { android.graphics.BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
+                    ?: return@let Result.success(local.copy(analysisSource = OcrAnalysisSource.LOCAL_FALLBACK, onlineFailure = "No se pudo preparar la imagen para la IA online"))
+                applyOnlineSecondPass(Result.success(local), bitmap)
+            }
         }
+
+    private suspend fun applyOnlineSecondPass(localResult: Result<OcrResult>, bitmap: Bitmap): Result<OcrResult> {
+        if (localResult.isFailure) return localResult
+        if (!OnlineReceiptAi.isConfigured) {
+            return localResult.map { it.copy(analysisSource = OcrAnalysisSource.LOCAL) }
+        }
+
+        val local = localResult.getOrThrow()
+        val online = OnlineReceiptAi.analyze(bitmap, local.rawText)
+        val ai = online.getOrNull()
+        if (ai != null && isPlausible(ai, local.parsed)) {
+            return Result.success(
+                local.copy(
+                    parsed = ai,
+                    analysisSource = OcrAnalysisSource.ONLINE_AI,
+                    onlineFailure = null
+                )
+            )
+        }
+
+        val reason = when {
+            online.isFailure -> online.exceptionOrNull()?.javaClass?.simpleName ?: "error"
+            ai == null -> "respuesta vacía"
+            else -> "resultado rechazado por validación"
+        }
+        return Result.success(
+            local.copy(
+                analysisSource = OcrAnalysisSource.LOCAL_FALLBACK,
+                onlineFailure = reason
+            )
+        )
+    }
 
     private fun isPlausible(ai: ParsedReceipt, local: ParsedReceipt): Boolean {
         if (ai.merchant.trim().length < 2 || ai.date.isBlank()) return false
@@ -61,4 +90,15 @@ class ReceiptOcrProcessor {
     fun close() = recognizer.close()
 }
 
-data class OcrResult(val rawText: String, val parsed: ParsedReceipt)
+enum class OcrAnalysisSource {
+    LOCAL,
+    ONLINE_AI,
+    LOCAL_FALLBACK
+}
+
+data class OcrResult(
+    val rawText: String,
+    val parsed: ParsedReceipt,
+    val analysisSource: OcrAnalysisSource = OcrAnalysisSource.LOCAL,
+    val onlineFailure: String? = null
+)
