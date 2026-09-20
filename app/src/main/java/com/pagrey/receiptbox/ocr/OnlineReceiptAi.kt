@@ -5,15 +5,13 @@ import android.util.Base64
 import com.pagrey.receiptbox.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * Optional online second-pass receipt analysis using Gemini multimodal vision.
- * The API key is injected at build time and is never committed to source control.
- */
+/** Optional online second-pass receipt analysis using Gemini multimodal vision. */
 object OnlineReceiptAi {
     val isConfigured: Boolean
         get() = BuildConfig.GEMINI_API_KEY.isNotBlank()
@@ -36,16 +34,18 @@ object OnlineReceiptAi {
                 $ocrText
             """.trimIndent()
 
+            val imagePart = JSONObject()
+                .put("inline_data", JSONObject()
+                    .put("mime_type", "image/jpeg")
+                    .put("data", image))
+            val textPart = JSONObject().put("text", prompt)
+            val parts = JSONArray().put(imagePart).put(textPart)
+            val content = JSONObject().put("parts", parts)
+            val contents = JSONArray().put(content)
+            val generationConfig = JSONObject().put("responseMimeType", "application/json")
             val body = JSONObject()
-                .put("contents", org.json.JSONArray().put(
-                    JSONObject().put("parts", org.json.JSONArray()
-                        .put(JSONObject().put("inline_data", JSONObject()
-                            .put("mime_type", "image/jpeg")
-                            .put("data", image)))
-                        .put(JSONObject().put("text", prompt)))
-                )
-                .put("generationConfig", JSONObject()
-                    .put("responseMimeType", "application/json"))
+                .put("contents", contents)
+                .put("generationConfig", generationConfig)
                 .toString()
 
             val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${BuildConfig.GEMINI_MODEL}:generateContent")
@@ -71,7 +71,12 @@ object OnlineReceiptAi {
                 .getJSONArray("parts")
                 .getJSONObject(0)
                 .getString("text")
-            val json = JSONObject(text.trim().removePrefix("```").removePrefix("json").removeSuffix("```").trim())
+            val clean = text.trim()
+                .removePrefix("```")
+                .removePrefix("json")
+                .removeSuffix("```")
+                .trim()
+            val json = JSONObject(clean)
 
             ParsedReceipt(
                 merchant = json.optString("merchant"),
