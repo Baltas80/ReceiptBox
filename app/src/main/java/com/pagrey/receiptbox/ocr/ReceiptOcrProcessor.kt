@@ -21,6 +21,12 @@ class ReceiptOcrProcessor {
                 .addOnFailureListener { error ->
                     continuation.resume(Result.failure(error))
                 }
+        }.let { localResult ->
+            if (localResult.isFailure || !OnlineReceiptAi.isConfigured) return@let localResult
+            val local = localResult.getOrThrow()
+            val ai = OnlineReceiptAi.analyze(bitmap, local.rawText).getOrNull()
+            if (ai == null || !isPlausible(ai, local.parsed)) localResult
+            else Result.success(local.copy(parsed = ai))
         }
 
     suspend fun process(context: Context, file: java.io.File): Result<OcrResult> =
@@ -34,7 +40,23 @@ class ReceiptOcrProcessor {
                         .addOnFailureListener { error -> continuation.resume(Result.failure(error)) }
                 }
                 .onFailure { error -> continuation.resume(Result.failure(error)) }
+        }.let { localResult ->
+            if (localResult.isFailure || !OnlineReceiptAi.isConfigured) return@let localResult
+            val local = localResult.getOrThrow()
+            val bitmap = runCatching { android.graphics.BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
+                ?: return@let localResult
+            val ai = OnlineReceiptAi.analyze(bitmap, local.rawText).getOrNull()
+            if (ai == null || !isPlausible(ai, local.parsed)) localResult
+            else Result.success(local.copy(parsed = ai))
         }
+
+    private fun isPlausible(ai: ParsedReceipt, local: ParsedReceipt): Boolean {
+        if (ai.merchant.trim().length < 2 || ai.date.isBlank()) return false
+        val total = ai.total ?: return false
+        if (total <= 0.0 || total > 100_000.0) return false
+        if (local.total != null && local.total > 0.0 && total > local.total * 50.0 && local.total < 100.0) return false
+        return true
+    }
 
     fun close() = recognizer.close()
 }
