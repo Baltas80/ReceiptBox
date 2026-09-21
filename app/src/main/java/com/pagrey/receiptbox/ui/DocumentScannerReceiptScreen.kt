@@ -204,10 +204,10 @@ private fun ScannerReviewReceipt(ocr: OcrResult?, file: File, error: String?, on
         if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = ReceiptBoxDesign.ITEM_SPACING))
 
         val analysisText = when (ocr?.analysisSource) {
-            OcrAnalysisSource.ONLINE_AI -> "IA online aplicada · resultado generado con imagen + OCR"
-            OcrAnalysisSource.LOCAL_FALLBACK -> "IA online no aceptada · se muestra el resultado OCR local" + (ocr?.onlineFailure?.let { " · $it" } ?: "")
-            OcrAnalysisSource.LOCAL -> "OCR local · IA online no configurada"
-            null -> "Analizando…"
+            OcrAnalysisSource.ONLINE_AI -> "IA de visión aplicada · resultado generado directamente desde la imagen"
+            OcrAnalysisSource.LOCAL_FALLBACK -> "IA de visión no disponible" + (ocr?.onlineFailure?.let { " · $it" } ?: "")
+            OcrAnalysisSource.LOCAL -> "Análisis local no utilizado"
+            null -> if (error != null) "Análisis de IA no disponible" else "Analizando…"
         }
         val analysisColor = when (ocr?.analysisSource) {
             OcrAnalysisSource.ONLINE_AI -> MaterialTheme.colorScheme.primaryContainer
