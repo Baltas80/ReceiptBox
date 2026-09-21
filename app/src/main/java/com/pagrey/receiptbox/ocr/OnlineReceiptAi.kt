@@ -11,80 +11,93 @@ import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Optional online second-pass receipt analysis using Gemini multimodal vision. */
+/** Direct multimodal receipt analysis. No local OCR is used. */
 object OnlineReceiptAi {
     val isConfigured: Boolean
         get() = BuildConfig.GEMINI_API_KEY.isNotBlank()
 
-    suspend fun analyze(bitmap: Bitmap, ocrText: String): Result<ParsedReceipt> = withContext(Dispatchers.IO) {
+    suspend fun analyze(bitmap: Bitmap): Result<ParsedReceipt> = withContext(Dispatchers.IO) {
         if (!isConfigured) return@withContext Result.failure(IllegalStateException("IA online no configurada"))
 
         runCatching {
             val image = bitmapToBase64(bitmap)
             val prompt = """
-                Analiza esta fotografía de un ticket de compra español. Devuelve SOLO JSON válido, sin markdown.
-                No inventes datos. Usa la imagen como fuente principal y el OCR como apoyo.
+                Analiza directamente esta fotografía de un ticket de compra español.
+                NO uses OCR externo ni texto auxiliar: la imagen es la única fuente.
+                Devuelve SOLO JSON válido, sin markdown.
                 Campos exactos: merchant (string), date (string DD/MM/YYYY), total (number), tax (number|null), receiptNumber (string).
-                El total debe ser el importe de la línea TOTAL/TOTAL A PAGAR, no efectivo, cambio, subtotales ni artículos.
-                Si hay tabla IMPUESTOS con columnas porcentaje, BASE y CUOTA, tax es la suma de las CUOTAS.
+                El campo total DEBE ser el importe impreso en la línea TOTAL o TOTAL A PAGAR.
+                NO confundas total con efectivo entregado, cambio, subtotal, precio de un artículo, base imponible o código de barras.
+                Si aparece una tabla de impuestos, tax es la suma de las CUOTAS.
                 Si un campo no puede determinarse con seguridad, usa string vacío o null.
-                Valida que el total sea coherente con los importes del ticket antes de devolverlo.
-
-                OCR auxiliar:
-                $ocrText
+                Lee la fotografía completa, incluyendo la parte inferior del ticket.
+                Antes de responder, verifica visualmente que el total elegido corresponde a la línea TOTAL.
             """.trimIndent()
 
-            val imagePart = JSONObject()
-                .put("inline_data", JSONObject()
+            val parts = JSONArray()
+                .put(JSONObject().put("inline_data", JSONObject()
                     .put("mime_type", "image/jpeg")
-                    .put("data", image))
-            val textPart = JSONObject().put("text", prompt)
-            val parts = JSONArray().put(imagePart).put(textPart)
-            val content = JSONObject().put("parts", parts)
-            val contents = JSONArray().put(content)
-            val generationConfig = JSONObject().put("responseMimeType", "application/json")
+                    .put("data", image)))
+                .put(JSONObject().put("text", prompt))
+
             val body = JSONObject()
-                .put("contents", contents)
-                .put("generationConfig", generationConfig)
+                .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+                .put("generationConfig", JSONObject()
+                    .put("responseMimeType", "application/json"))
                 .toString()
 
             val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${BuildConfig.GEMINI_MODEL}:generateContent")
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = 20_000
-                readTimeout = 40_000
+                readTimeout = 60_000
                 doOutput = true
-                setRequestProperty("Content-Type", "application/json")
+                useCaches = false
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                setRequestProperty("Accept", "application/json")
                 setRequestProperty("x-goog-api-key", BuildConfig.GEMINI_API_KEY)
             }
 
-            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-            val responseCode = connection.responseCode
-            val responseText = (if (responseCode in 200..299) connection.inputStream else connection.errorStream)
-                ?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (responseCode !in 200..299) error("Gemini HTTP $responseCode: $responseText")
+            try {
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                val responseCode = connection.responseCode
+                val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                if (responseCode !in 200..299) {
+                    error("Gemini HTTP $responseCode: ${responseText.take(800)}")
+                }
 
-            val root = JSONObject(responseText)
-            val text = root.getJSONArray("candidates")
-                .getJSONObject(0)
-                .getJSONObject("content")
-                .getJSONArray("parts")
-                .getJSONObject(0)
-                .getString("text")
-            val clean = text.trim()
-                .removePrefix("```")
-                .removePrefix("json")
-                .removeSuffix("```")
-                .trim()
-            val json = JSONObject(clean)
+                val root = JSONObject(responseText)
+                val candidates = root.optJSONArray("candidates")
+                    ?: error("Gemini: respuesta sin candidates")
+                if (candidates.length() == 0) error("Gemini: respuesta sin candidatos")
+                val partsResponse = candidates.getJSONObject(0)
+                    .optJSONObject("content")?.optJSONArray("parts")
+                    ?: error("Gemini: respuesta sin contenido")
+                if (partsResponse.length() == 0) error("Gemini: respuesta sin partes")
 
-            ParsedReceipt(
-                merchant = json.optString("merchant"),
-                date = json.optString("date"),
-                total = if (json.isNull("total")) null else json.optDouble("total", Double.NaN).takeUnless { it.isNaN() },
-                tax = if (json.isNull("tax")) null else json.optDouble("tax", Double.NaN).takeUnless { it.isNaN() },
-                receiptNumber = json.optString("receiptNumber")
-            )
+                val text = partsResponse.getJSONObject(0).optString("text")
+                if (text.isBlank()) error("Gemini: respuesta vacía")
+
+                val clean = text.trim()
+                    .removePrefix("```")
+                    .removePrefix("json")
+                    .removeSuffix("```")
+                    .trim()
+                val json = JSONObject(clean)
+                val total = if (json.isNull("total")) null else json.optDouble("total", Double.NaN).takeUnless { it.isNaN() }
+                if (total == null || total <= 0.0) error("Gemini: total no válido")
+
+                ParsedReceipt(
+                    merchant = json.optString("merchant"),
+                    date = json.optString("date"),
+                    total = total,
+                    tax = if (json.isNull("tax")) null else json.optDouble("tax", Double.NaN).takeUnless { it.isNaN() },
+                    receiptNumber = json.optString("receiptNumber")
+                )
+            } finally {
+                connection.disconnect()
+            }
         }
     }
 
