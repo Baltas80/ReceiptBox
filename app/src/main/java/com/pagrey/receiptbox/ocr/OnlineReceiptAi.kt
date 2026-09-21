@@ -13,6 +13,13 @@ import java.net.URL
 
 /** Direct multimodal receipt analysis. No local OCR is used. */
 object OnlineReceiptAi {
+    private val fallbackModels = listOf(
+        BuildConfig.GEMINI_MODEL,
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash"
+    ).distinct()
+
     val isConfigured: Boolean
         get() = BuildConfig.GEMINI_API_KEY.isNotBlank()
 
@@ -20,7 +27,27 @@ object OnlineReceiptAi {
         if (!isConfigured) return@withContext Result.failure(IllegalStateException("IA online no configurada"))
 
         runCatching {
+            var lastFailure: Throwable? = null
+            for (model in fallbackModels) {
+                var attempt = 0
+                while (attempt < 2) {
+                    val result = request(model, bitmap)
+                    if (result.isSuccess) return@runCatching result.getOrThrow()
+                    lastFailure = result.exceptionOrNull()
+                    if (lastFailure !is ApiException || (lastFailure.code != 429 && lastFailure.code != 503) || attempt == 1) break
+                    attempt++
+                    delay(1_200L * attempt)
+                }
+            }
+            error(lastFailure?.message ?: "Servicio de IA no disponible")
+        }
+    }
+
+    private fun request(model: String, bitmap: Bitmap): Result<ParsedReceipt> {
+        var connection: HttpURLConnection? = null
+        return runCatching {
             val image = bitmapToBase64(bitmap)
+
             val prompt = """
                 Analiza directamente esta fotografía de un ticket de compra español.
                 NO uses OCR externo ni texto auxiliar: la imagen es la única fuente.
@@ -46,7 +73,7 @@ object OnlineReceiptAi {
                     .put("responseMimeType", "application/json"))
                 .toString()
 
-            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${BuildConfig.GEMINI_MODEL}:generateContent")
+            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = 20_000
@@ -64,7 +91,7 @@ object OnlineReceiptAi {
                 val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
                 val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
                 if (responseCode !in 200..299) {
-                    error("Gemini HTTP $responseCode: ${responseText.take(800)}")
+                    throw ApiException(responseCode, responseText.take(500))
                 }
 
                 val root = JSONObject(responseText)
@@ -100,6 +127,8 @@ object OnlineReceiptAi {
             }
         }
     }
+
+    private class ApiException(val code: Int, body: String) : IllegalStateException("Gemini HTTP $code: $body")
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val output = ByteArrayOutputStream()
